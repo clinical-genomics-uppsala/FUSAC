@@ -72,6 +72,8 @@ def vcf_extract(vcf_file, bam_file):
 def pos_checker(bam_lst, record_pos):
     umi_dict = {}
     base_res = {}
+    var_lst = []
+    pos_res = {}
     try:
         for read in bam_lst:
             # Gets the name of the sequence
@@ -116,6 +118,8 @@ def pos_checker(bam_lst, record_pos):
                 umi_dict[umi_id][strand].append(read)
         f_hits = {}
         r_hits = {}
+        f_s_hits = {}
+        r_s_hits = {}
         umi_dict = {k: v for k, v in umi_dict.items() if v}
         counter = 0
         for umi_key in umi_dict.keys():
@@ -135,19 +139,30 @@ def pos_checker(bam_lst, record_pos):
                     base_res["Reverse Reads"] = r_lst
                     f_hits[umi_key] = pos_hits(f_lst, record_pos)
                     r_hits[umi_key] = pos_hits(r_lst, record_pos)
-                    base_res["Forward hits"] = f_hits[umi_key]
-                    base_res["Reverse hits"] = r_hits[umi_key]
-                    f_found = ffpe_finder(base_res, record_pos, 0.9)
+                    base_res["Forward Hits"] = f_hits
+                    base_res["Reverse Hits"] = r_hits
+                    var_lst = ffpe_finder(base_res, 0.9)
                     # print("Forward Molecule Hits")
                     # print(f_hits)
                     # print("Reverse Molecule hits")
                     # print(r_hits)
-            if counter == 5:
+            elif f_lst:
+                if not r_lst:
+                    f_lst = umi_dict[umi_key]["Forward_Molecule"]
+                    f_s_hits = pos_hits(f_lst, record_pos)
+            elif r_lst:
+                if not f_lst:
+                    r_lst = umi_dict[umi_key]["Reverse_Molecule"]
+                    r_s_hits = pos_hits(r_lst, record_pos)
+            if counter == 300:
                 break
         exit()
+        pos_res["Forward Single"] = f_s_hits
+        pos_res["Reverse Single"] = r_s_hits
+        pos_res["Variant Hits"] = var_lst
     except KeyError:
         print("ERROR: The requested key does not exist")
-    return base_res
+    return pos_res
 
 
 def pos_hits(inp_lst, record_pos):
@@ -163,14 +178,15 @@ def pos_hits(inp_lst, record_pos):
         # Gets the positions the sequence maps to in the reference
         # Full length with soft clips is required for the index selection to be correct
         read_pos = read.get_reference_positions(full_length=True)
-        read_pos_en = list(enumerate(read_pos, 0))
+        # read_pos_en = list(enumerate(read_pos, 0))
         # print(read_pos_en)
         try:
             # Gets the index of the position the sequence maps to
             ind_pos = read_pos.index(record_pos)
+            # Obtains the query sequence (the sequence as it were read)
             read_seq = read.query_sequence
             read_seq = list(read_seq)
-            # print("The query name is : " + str(read.query_name))
+            # Gets the base present at the index position of the variant
             read_base = read_seq[ind_pos]
             # # If the read is reverse, get the original read sequence
             # if read.is_reverse:
@@ -189,6 +205,7 @@ def pos_hits(inp_lst, record_pos):
             #     read_base = read_seq[ind_pos]
             #     print("The selected forward base is : " + read_base)
 
+            # Checks the value of the base, adds to a counter based on its value
             if read_base == 'A':
                 n_a += 1
             elif read_base == 'T':
@@ -202,42 +219,56 @@ def pos_hits(inp_lst, record_pos):
 
         except ValueError:
             print("Error: reference position: " + str(record_pos) + " not in the short read")
-    # Returns a dict with the percentile support of each base
+    # Returns a dict with the counts for each base respectively
     pos_dict = {"A": n_a, "T": n_t, "G": n_g, "C": n_c, "N": n_n}
     return pos_dict
 
 
-def ffpe_finder(base_res, record_pos, pos_sup):
+def ffpe_finder(base_res, pos_sup):
     ffpe_dict = {}
     artf_dict = {}
-    for umi_key in base_res["Forward hits"]:
+    for umi_key in base_res["Forward Hits"]:
         try:
-            if umi_key in base_res["Reverse hits"]:
-                f_hits = base_res["Forward hits"][umi_key]
-                r_hits = base_res["Reverse hits"][umi_key]
-                f_sum = sum(f_hits.values())
-                r_sum = sum(r_hits.values())
-                for f_base in f_hits:
-                    if (f_hits[f_base]//f_sum) != (r_hits[f_base]/r_sum):
-                        if (f_hits[f_base]/f_sum) > pos_sup:
-                            ffpe_dict[umi_key]["Forward Molecule"] = f_hits
-                            ffpe_dict[umi_key]["Reverse Molecule"] = r_hits
-                        # ffpe_dict[umi_key]["Forward Molecule"] = {"Base": f_base, "Positive support": f_hits[f_base],
-                        #                                           "Negative support": (f_sum - f_hits[f_base])}
-                        # r_base = max(r_hits, key=r_hits)
-                        # ffpe_dict[umi_key]["Reverse Molecule"] = {"Base": r_base, "Positive support": r_hits[r_base],
-                        #                                           "Negative support": (r_sum - r_hits[r_base])}
-                        elif (r_hits[f_base]/r_sum) > pos_sup:
-                            ffpe_dict[umi_key]["Forward Molecule"] = f_hits
-                            ffpe_dict[umi_key]["Reverse Molecule"] = r_hits
-                        elif (f_hits[f_base]/f_sum) < pos_sup and (f_hits[f_base]/f_sum) != 0:
-                            artf_dict[umi_key]["Forward Molecule"] = f_hits
-                            artf_dict[umi_key]["Reverse Molecule"] = r_hits
-                        elif (r_hits[f_base]/r_sum) < pos_sup and (r_hits[f_base]/r_sum) != 0:
-                            artf_dict[umi_key]["Forward Molecule"] = f_hits
-                            artf_dict[umi_key]["Reverse Molecule"] = r_hits
-        except KeyError:
-            print(" No matching key found, comparison not possible")
+            # Checks if the umi-key is present in the reverse molecule
+            # Retrieves the forward and reverse base hits for the key value
+            f_hits = base_res["Forward Hits"][umi_key]
+            r_hits = base_res["Reverse Hits"][umi_key]
+            # Sums the values in both for the purpose of getting the fraction of each hit
+            f_sum = sum(f_hits.values())
+            r_sum = sum(r_hits.values())
+            for f_base in f_hits:
+                # Sees if a base hit values fractional score is not equal to that of the other molecule
+                if (f_hits[f_base]/f_sum) != (r_hits[f_base]/r_sum):
+                    # Sees is the fractional score for the base on the forward mol is more then the supported value
+                    if (f_hits[f_base]/f_sum) > pos_sup:
+                        # If so adds their base hits to the ffpe dictionary
+                        ffpe_dict[umi_key]["Forward Molecule"] = f_hits
+                        ffpe_dict[umi_key]["Reverse Molecule"] = r_hits
+                        print(ffpe_dict)
+                    elif (r_hits[f_base]/r_sum) > pos_sup:
+                        ffpe_dict[umi_key]["Forward Molecule"] = f_hits
+                        ffpe_dict[umi_key]["Reverse Molecule"] = r_hits
+                        print(ffpe_dict)
+                    # Sees if the fraction is below the supported value and larger then 0
+                    elif (f_hits[f_base]/f_sum) < pos_sup and (f_hits[f_base]/f_sum) != 0:
+                        # If so, it is deemed an artefact and added to the artefact dictionary
+                        artf_dict[umi_key]["Forward Molecule"] = f_hits
+                        artf_dict[umi_key]["Reverse Molecule"] = r_hits
+                    elif (r_hits[f_base]/r_sum) < pos_sup and (r_hits[f_base]/r_sum) != 0:
+                        artf_dict[umi_key]["Forward Molecule"] = f_hits
+                        artf_dict[umi_key]["Reverse Molecule"] = r_hits
+        except KeyError as e:
+            print("No matching key for key: " + umi_key + " found, comparison not possible")
+            print("")
+            print("Forward Hits")
+            print(base_res["Forward Hits"])
+            print("")
+            print("Reverse Hits")
+            print(base_res["Reverse Hits"])
+            print("")
+            print(e)
+            exit()
+    # Returns both dictionaries in a list
     var_lst = [ffpe_dict, artf_dict]
     return var_lst
 
@@ -274,13 +305,7 @@ def main():
     vcf_file = pysam.VariantFile("26-ensembl.chr8.vcf", "r")
     # Extracts all reads present in the bam file which have their regions matching to that of a variant call in the VCF
     result_dat = vcf_extract(vcf_file, bam_file)
-    new_lst = []
-    new_bam = pysam.AlignmentFile("filtered_bam.bam", "wb", template=bam_file)
-    for pos in result_dat:
-        new_lst.append(result_dat[pos]["Reads"])
-    for read in new_lst:
-        if read.is_paired:
-            new_bam.write(read)
+
     # Generate new dictionary of all BAM reads in the extracted dict with UMI's as identifier tags
     bam_file.close()
 
