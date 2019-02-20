@@ -1,78 +1,122 @@
 # First attempt to read in BAM as SAM
 # !/usr/bin/python
 
-# FUMIC (FFPE-artfact UMI-based Mapper for Imputation in Cancer-sample tissue data)
+# FUMIC (FFPE-artefact UMI-based Mapper for Imputation in Cancer-sample tissue data)
 # By Hugo Swenson, with assistance from Patrik Smeds and Claes Edenvall
 # For Klinisk Genomik, Uppsala Akademiska Sjukhus 2018
 
 # Imports modules
 import pysam
-
-# def bam_dict(readfile):
-#     new_dict = {}
-#     for read in readfile:
-#         fs = read.get_forward_sequence()
-#         # Gets the name of the sequence
-#         qn = read.query_name
-#         # Splits the name based on "_" character
-#         qn_spl = qn.split("_")
-#         # Extracts the 1- based leftmost mapping POSition
-#         l_pos = read.reference_start
-#         r_pos = read.reference_end
-#         # Selects the last element of the vector
-#         umi = qn_spl[-1]
-#         # Obtains the barcode's based on splitting the vector  using the "+" symbol
-#         brc = umi.split("+")
-#         umi_l = brc[0]
-#         umi_r = brc[1]
-#         # Checks read polarity to see whether or not it is reverse paired
-#         if read.is_reverse:
-#             try:
-#                 s_dir = "reverse"
-#                 seq_d = {"Direction": s_dir, "Left-Pos": r_pos, "Right-Pos": l_pos, "UMI-L": umi_r, "UMI-R": umi_l, "sequence": fs}
-#                 new_dict[str(r_pos) + "_" + str(l_pos) + "_" + umi_r + "_" + umi_l] = seq_d
-#             except KeyError:
-#                 print("The requested key does not exist")
-#         else:
-#             try:
-#                 s_dir = "forward"
-#                 seq_d = {"Direction": s_dir, "Left-Pos": l_pos, "Right-Pos": r_pos, "UMI-L": umi_r, "UMI-R": umi_l, "sequence": fs}
-#                 new_dict[str(l_pos) + "_" + str(r_pos) + "_" + umi_l + "_" + umi_r] = seq_d
-#             except KeyError:
-#                 print("The requested key does not exist")
-#     return new_dict
-
-
-def dict_search(in_dict):
-    # initialize a null list
-    unique_lst = []
-    # traverse for all elements
-    for key in in_dict.keys():
-        # check if exists in unique_list or not
-        if key not in unique_lst:
-            unique_lst.append(key)
-    return unique_lst
+import argparse
+import string
 
 
 def vcf_extract(vcf_file, bam_file):
+    # parser = argparse.ArgumentParser(description='FUMIC - FFPE-artefact UMI-based Mapper for Imputation in '
+    #                                              'Cancer-sample tissue data')
+    #
+    # parser.add_argument('-i', '--inputfile', help='Input txt file (Required)', required=True)
+    # parser.add_argument('-o', '--outputfile', help='Output txt file (Required)', required=True)
+    #
+    # args = vars(parser.parse_args())
+    # infile = open(args['inputfile'], "rb")
+    # outfile = open(args['outputfile'], "rb")
+
+    vcf_head = vcf_file.header
+    vcf_head.filters.add('FFPE', None, None, 'FFPE Artefact')
+    n_vcf = pysam.VariantFile("output_vcf.vcf", mode='w', header=vcf_head)
     # Initialize a null list
     # Retrieve the position from every record in the VCF file
-    ffpe_data = {}
     for record in vcf_file.fetch():
         bam_lst = []
+        # Copies the record information
+        n_alt = record.alts
+        n_pos = record.pos
+        n_ref = record.ref
+        n_cop = record.copy()
         # The position that is returned to Python is 0 - based, NOT 1 - based as in the VCF file.
-        record_pos = (record.pos - 1)
+        record_pos = (n_pos - 1)
+
+        for alt in n_alt:
+            # Removes any entry of the r_base also present in the var_call
+            n_ref = list(n_ref)
+            n_ref = [r_base for r_base in n_ref if r_base != alt]
         # Use the record position to fetch all reads matching it, then append to the list
         for read in bam_file.fetch('chr8', record_pos, record_pos+1):
             bam_lst.append(read)
-        ffpe_data[record_pos] = (pos_checker(bam_lst, record_pos))
-    return ffpe_data
+        # Calls the pos_checker function to obtain ffpe_data
+        ffpe_data = (pos_checker(bam_lst, record_pos, n_alt, n_ref))
+        pos_sup = sup_count(ffpe_data, n_ref, n_alt)
+        # Checks if any record in the returned dict indicates an FFPE, if so updates the n_fil parameter
+        for umi_key in ffpe_data:
+            if ffpe_data[umi_key]["Variant Hits"]:
+                if ffpe_data[umi_key]["Variant Hits"]["FFPE Hits"]:
+                    n_cop.filter.add("FFPE")
+                    break
+        # Adds a record to the new VCF-file
+        n_vcf.write(n_cop)
 
 
-def pos_checker(bam_lst, record_pos):
+def sup_count(input_dict, n_ref, n_alt):
+    alt_sup = {}
+    ref_sup = {}
+    pos_sup = {}
+    for umi_key in input_dict:
+        # Iterates through each alternative allele called by the variant caller
+        for alt in n_alt:
+            # Counts the no. molecules supporting the variant in the single forward molecule
+            if input_dict[umi_key]["Forward Single"]:
+                alt_sup[alt] += input_dict[umi_key]["Forward Single"].count(alt)
+            # Counts the no. molecules supporting the variant in the single reverse molecule
+            if input_dict[umi_key]["Reverse Single"]:
+                alt_sup[alt] += input_dict[umi_key]["Reverse Single"].count(alt)
+            # Sees if the dict variant hits is empty, if not, counts the no molecules supporting the variant as FFPE
+            if input_dict[umi_key]["Variant Hits"]:
+                if input_dict[umi_key]["Variant Hits"]["FFPE Hits"]:
+                    if input_dict[umi_key]["Variant Hits"]["FFPE Hits"][alt]:
+                        alt_sup[alt] += input_dict[umi_key]["Variant Hits"]["FFPE Hits"][alt].count(alt)
+                # Sees if the dict variant hits is empty, if not, counts the no molecules supporting the variant as
+                # a regular mutation
+                if input_dict[umi_key]["Variant Mutation Hits"]["Variant Mutation Hits"]:
+                    if input_dict[umi_key]["Variant Hits"]["Variant Mutation Hits"][alt]:
+                        alt_sup[alt] += input_dict[umi_key]["Variant Hits"]["Variant Mutation Hits"][alt].count(alt)
+                # Sees if the dict Ref Hits is empty, if not, counts the no molecules supporting the variant as
+                # a reference (ie: not mutated)
+                if input_dict[umi_key]["Variant Hits"]["Reference Hits"]:
+                    if input_dict[umi_key]["Variant Hits"]["Reference Hits"][alt]:
+                        alt_sup[alt] += input_dict[umi_key]["Variant Hits"]["Reference Hits"][alt].count(alt)
+                # Sees if the dict Other Mutation Hits is empty, if not, counts the no molecules supporting the variant
+                # as another form of mutation
+                if input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"]:
+                    if input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][alt]:
+                        alt_sup[alt] += input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][alt].count(alt)
+        # Iterates through each base present in the reference
+        for ref in n_ref:
+            if input_dict[umi_key]["Forward Single"]:
+                ref_sup[ref] += input_dict[umi_key]["Forward Single"].count(ref)
+            if input_dict[umi_key]["Reverse Single"]:
+                ref_sup[ref] += input_dict[umi_key]["Reverse Single"].count(n_alt)
+            if input_dict[umi_key]["Variant Hits"]:
+                if input_dict[umi_key]["Variant Hits"]["FFPE Hits"]:
+                    if input_dict[umi_key]["Variant Hits"]["FFPE Hits"][ref]:
+                        ref_sup[ref] += input_dict[umi_key]["Variant Hits"]["FFPE Hits"][ref].count(ref)
+                if input_dict[umi_key]["Variant Hits"]["Variant Mutation Hits"]:
+                    if input_dict[umi_key]["Variant Hits"]["Variant Mutation Hits"][ref]:
+                        ref_sup[ref] += input_dict[umi_key]["Variant Hits"]["Variant Mutation Hits"][ref].count(ref)
+                if input_dict[umi_key]["Variant Hits"]["Reference Hits"]:
+                    if input_dict[umi_key]["Variant Hits"]["Reference Hits"][ref]:
+                        ref_sup[ref] += input_dict[umi_key]["Variant Hits"]["Reference Hits"][ref].count(ref)
+                if input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"]:
+                    if input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][ref]:
+                        ref_sup[ref] += input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][ref].count(ref)
+        pos_sup[umi_key] = {"Variant": alt_sup, "Reference": ref_sup}
+    return pos_sup
+
+
+def pos_checker(bam_lst, record_pos, ref_var, ref_base):
     umi_dict = {}
     base_res = {}
-    var_lst = []
+    var_dict = {}
     pos_res = {}
     try:
         for read in bam_lst:
@@ -141,7 +185,7 @@ def pos_checker(bam_lst, record_pos):
                     r_hits[umi_key] = pos_hits(r_lst, record_pos)
                     base_res["Forward Hits"] = f_hits
                     base_res["Reverse Hits"] = r_hits
-                    var_lst = ffpe_finder(base_res, 0.9)
+                    var_dict = ffpe_finder(base_res, ref_var, ref_base, umi_key)
                     # print("Forward Molecule Hits")
                     # print(f_hits)
                     # print("Reverse Molecule hits")
@@ -154,12 +198,11 @@ def pos_checker(bam_lst, record_pos):
                 if not f_lst:
                     r_lst = umi_dict[umi_key]["Reverse_Molecule"]
                     r_s_hits = pos_hits(r_lst, record_pos)
-            if counter == 300:
-                break
-        exit()
-        pos_res["Forward Single"] = f_s_hits
-        pos_res["Reverse Single"] = r_s_hits
-        pos_res["Variant Hits"] = var_lst
+            pos_res[umi_key] = {"Forward Single": f_s_hits, "Reverse Single": r_s_hits, "Variant Hits": var_dict}
+            # print(pos_res)
+        #     if counter == 300:
+        #         break
+        # exit()
     except KeyError:
         print("ERROR: The requested key does not exist")
     return pos_res
@@ -224,79 +267,42 @@ def pos_hits(inp_lst, record_pos):
     return pos_dict
 
 
-def ffpe_finder(base_res, pos_sup):
+def ffpe_finder(base_res, ref_var, ref_base, umi_key):
     ffpe_dict = {}
-    artf_dict = {}
-    for umi_key in base_res["Forward Hits"]:
-        try:
-            # Checks if the umi-key is present in the reverse molecule
-            # Retrieves the forward and reverse base hits for the key value
-            f_hits = base_res["Forward Hits"][umi_key]
-            r_hits = base_res["Reverse Hits"][umi_key]
-            # Sums the values in both for the purpose of getting the fraction of each hit
-            f_sum = sum(f_hits.values())
-            r_sum = sum(r_hits.values())
-            for f_base in f_hits:
-                # Sees if a base hit values fractional score is not equal to that of the other molecule
-                if (f_hits[f_base]/f_sum) != (r_hits[f_base]/r_sum):
-                    # Sees is the fractional score for the base on the forward mol is more then the supported value
-                    if (f_hits[f_base]/f_sum) > pos_sup:
-                        # If so adds their base hits to the ffpe dictionary
-                        ffpe_dict[umi_key]["Forward Molecule"] = f_hits
-                        ffpe_dict[umi_key]["Reverse Molecule"] = r_hits
-                        print(ffpe_dict)
-                    elif (r_hits[f_base]/r_sum) > pos_sup:
-                        ffpe_dict[umi_key]["Forward Molecule"] = f_hits
-                        ffpe_dict[umi_key]["Reverse Molecule"] = r_hits
-                        print(ffpe_dict)
-                    # Sees if the fraction is below the supported value and larger then 0
-                    elif (f_hits[f_base]/f_sum) < pos_sup and (f_hits[f_base]/f_sum) != 0:
-                        # If so, it is deemed an artefact and added to the artefact dictionary
-                        artf_dict[umi_key]["Forward Molecule"] = f_hits
-                        artf_dict[umi_key]["Reverse Molecule"] = r_hits
-                    elif (r_hits[f_base]/r_sum) < pos_sup and (r_hits[f_base]/r_sum) != 0:
-                        artf_dict[umi_key]["Forward Molecule"] = f_hits
-                        artf_dict[umi_key]["Reverse Molecule"] = r_hits
-        except KeyError as e:
-            print("No matching key for key: " + umi_key + " found, comparison not possible")
-            print("")
-            print("Forward Hits")
-            print(base_res["Forward Hits"])
-            print("")
-            print("Reverse Hits")
-            print(base_res["Reverse Hits"])
-            print("")
-            print(e)
-            exit()
-    # Returns both dictionaries in a list
-    var_lst = [ffpe_dict, artf_dict]
-    return var_lst
+    mut_dict = {}
+    ref_dict = {}
+    out_dict = {}
 
-
-# def count_n(unique_k):
-#     n_1 = 0
-#     n_2 = 0
-#     n_3 = 0
-#     n_n = 0
-#     for letter in unique_k:
-#         n_c = letter.count('N')
-#         if n_c == 1:
-#             n_1 += 1
-#         elif n_c == 2:
-#             n_2 += 1
-#         elif n_c == 3:
-#             n_3 += 1
-#         elif n_c > 3:
-#             n_n += 1
-#     t_val = len(unique_k) - (n_1 + n_2 + n_3 + n_n)
-#     h_vec = [len(unique_k), t_val, n_1, n_2, n_3, n_n]
-#     bars = ('Total', 'True', 'N', 'NN', 'NNN', 'N > 3')
-#     y_pos = np.arange(len(bars))
-#
-#     plt.bar(y_pos, h_vec)
-#     plt.ylabel('Counts')
-#     plt.xticks(y_pos, h_vec)
-#     plt.savefig('Bar_plot.png')
+    try:
+        # Checks if the umi-key is present in the reverse molecule
+        # Retrieves the forward and reverse base hits for the key value
+        f_hits = base_res["Forward Hits"][umi_key]
+        r_hits = base_res["Reverse Hits"][umi_key]
+        # Iterates through each variant called by the program
+        for var_call in ref_var:
+            for r_base in ref_base:
+                # Sees if the variant is present in both molecules, if so, it is not classified as a FFPE
+                if f_hits[var_call] > 0 and r_hits[var_call] > 0:
+                    mut_dict[var_call] = {"Forward Molecule": f_hits, "Reverse Molecule": r_hits}
+                # Sees if the variant is present in only one molecule, if so it is determined to be a FFPE
+                elif f_hits[var_call] > 0 and r_hits[var_call] == 0:
+                    ffpe_dict[var_call] = {"Forward Molecule": f_hits, "Reverse Molecule": r_hits}
+                elif r_hits[var_call] > 0 and f_hits[var_call] == 0:
+                    ffpe_dict[var_call] = {"Forward Molecule": f_hits, "Reverse Molecule": r_hits}
+                # If none of the above if statements have been fulfilled, sees if the reference molecule has a count
+                # Exceeding 0 in both of the molecules, if so it is deemed not a mutation and added to the ref_dict
+                elif f_hits[r_base] > 0 and r_hits[r_base] > 0:
+                    ref_dict[r_base] = {"Forward Molecule": f_hits, "Reverse Molecule": r_hits}
+                # If none of the above statements are fulfilled, then it is deemed as another form of mutation
+                else:
+                    mut_dict[var_call] = {"Forward Molecule": f_hits, "Reverse Molecule": r_hits}
+    except KeyError as e:
+        print("No matching key for key: " + str(e) + " found, comparison not possible")
+        # Returns both dictionaries in a list
+    var_dict = {"FFPE Hits": ffpe_dict, "Variant Mutation Hits": mut_dict, "Reference Hits": ref_dict,
+                "Other Mutation Hits": out_dict}
+    # print(var_lst)
+    return var_dict
 
 
 def main():
@@ -304,14 +310,8 @@ def main():
     bam_file = pysam.AlignmentFile("26-sort.REF_chr8.bam", "r")
     vcf_file = pysam.VariantFile("26-ensembl.chr8.vcf", "r")
     # Extracts all reads present in the bam file which have their regions matching to that of a variant call in the VCF
-    result_dat = vcf_extract(vcf_file, bam_file)
-
-    # Generate new dictionary of all BAM reads in the extracted dict with UMI's as identifier tags
+    vcf_extract(vcf_file, bam_file)
     bam_file.close()
-
-    # Closes the alignment file
-    # pp = pprint.PrettyPrinter(indent=4)
-    # pp.pprint(c_uniq)
 
 
 main()
