@@ -1,14 +1,12 @@
 # First attempt to read in BAM as SAM
-# !/usr/bin/python
+# !/usr/bin/env python3
 
 # FUMIC (FFPE-artefact UMI-based Mapper for Imputation in Cancer-sample tissue data)
 # By Hugo Swenson, with assistance from Patrik Smeds and Claes Edenvall
-# For Klinisk Genomik, Uppsala Akademiska Sjukhus 2018
+# For Klinisk Genomik, Uppsala Akademiska Sjukhus 2019
 
 # Imports modules
 import pysam
-import argparse
-import string
 
 
 def vcf_extract(vcf_file, bam_file):
@@ -24,34 +22,55 @@ def vcf_extract(vcf_file, bam_file):
 
     vcf_head = vcf_file.header
     vcf_head.filters.add('FFPE', None, None, 'FFPE Artefact')
-    vcf_head.formats.add("UMI", ":", "String", "Support for the bases with respect to the UMIs")
+    vcf_head.formats.add("UMI", ".", "String", "UMI information for reference,variant Paired:SForward:SReverse")
     n_vcf = pysam.VariantFile("output_vcf.vcf", mode='w', header=vcf_head)
     # Initialize a null list
     # Retrieve the position from every record in the VCF file
     for record in vcf_file.fetch():
         bam_lst = []
+        var_sd = []
+        ref_sd = []
         # Copies the record information
-        n_alt = record.alts
-        n_alt = ''.join(n_alt)
-        list(n_alt)
+        n_cop = record.copy()
         n_pos = record.pos
+        # The position that is returned to Python is 0 - based, NOT 1 - based as in the VCF file.
+        record_pos = (n_pos - 1)
+        # Converts the tuple to a string, splits it into individual characters in a list, then removes duplicates
         n_ref = record.ref
         n_ref = ''.join(n_ref)
         list(n_ref)
-        n_cop = record.copy()
-        # The position that is returned to Python is 0 - based, NOT 1 - based as in the VCF file.
-        record_pos = (n_pos - 1)
+        n_ref = set(n_ref)
+        n_alt = record.alts
+        n_alt = ''.join(n_alt)
+        list(n_alt)
+        n_alt = set(n_alt)
 
-        for alt in n_alt:
-            # Removes any entry of the r_base also present in the var_call
-            n_ref = [r_base for r_base in n_ref if r_base != alt]
-        # Use the record position to fetch all reads matching it, then append to the list
+        # Checks so that the length of the list is not greater then 1 (temporary solution for handling SNVs only)
+        if len(n_ref) > 1 or len(n_alt) > 1:
+            continue
+
+        # # Removes reference bases also present in the variant call
+        # for alt in n_alt:
+        #     n_ref = [r_base for r_base in n_ref if r_base != alt]
+
+        # # Use the record position to fetch all reads matching it, then append to the list
         for read in bam_file.fetch('chr8', record_pos, record_pos+1):
             bam_lst.append(read)
+
         # Calls the pos_checker function to obtain ffpe_data
         ffpe_data = (pos_checker(bam_lst, record_pos, n_alt, n_ref))
         pos_sup = sup_count(ffpe_data, n_ref, n_alt)
-
+        print(pos_sup)
+        for var in n_alt:
+            var_sd = str(pos_sup["Variant"]["Paired"][var]) + ":" + str(pos_sup["Variant"][
+                        "Forward Single"][var]) + ":" + str(pos_sup["Variant"]["Reverse Single"][var])
+        for ref in n_ref:
+            ref_sd = str(pos_sup["Reference"]["Paired"][ref]) + ":" + str(pos_sup["Reference"]["Forward Single"][
+                                                ref]) + ":" + str(pos_sup["Reference"]["Reverse Single"][ref])
+        print(var_sd)
+        print(ref_sd)
+        for sample in n_cop.samples:
+            n_cop.samples[sample]['UMI'] = var_sd + ref_sd
         # umi_lst = []
         # for ref in pos_sup["Reference"]:
         #     ref_c = pos_sup["Variant"][ref]
@@ -70,14 +89,14 @@ def vcf_extract(vcf_file, bam_file):
 
 
 def sup_count(input_dict, n_ref, n_alt):
-    alt_sup = {}
-    ref_sup = {}
+    ref_sup = {"Forward Single": {}, "Reverse Single": {}, "Paired": {}}
+    alt_sup = {"Forward Single": {}, "Reverse Single": {}, "Paired": {}}
     for alt in n_alt:
-        alt_sup["Forward Single"] = {alt: 0}
-        alt_sup["Reverse Single"] = {alt: 0}
-        alt_sup["Paired"] = {alt: 0}
+        alt_sup["Forward Single"][alt] = 0
+        alt_sup["Reverse Single"][alt] = 0
+        alt_sup["Paired"][alt] = 0
         for umi_key in input_dict:
-        # Iterates through each alternative allele called by the variant caller
+            # Iterates through each alternative allele called by the variant caller
             # Counts the no. molecules supporting the variant in the single forward molecule
             if input_dict[umi_key]["Forward Single"]:
                 if alt in input_dict[umi_key]["Forward Single"]:
@@ -120,17 +139,17 @@ def sup_count(input_dict, n_ref, n_alt):
                             "Reverse Molecule"][alt]
     # Iterates through each base present in the reference
     for ref in n_ref:
-        ref_sup["Forward Single"] = {ref: 0}
-        ref_sup["Reverse Single"] = {ref: 0}
-        ref_sup["Paired"] = {ref: 0}
+        ref_sup["Forward Single"][ref] = 0
+        ref_sup["Reverse Single"][ref] = 0
+        ref_sup["Paired"][ref] = 0
         for umi_key in input_dict:
             if input_dict[umi_key]["Forward Single"]:
                 if ref in input_dict[umi_key]["Forward Single"]:
                     ref_sup["Forward Single"][ref] += input_dict[umi_key]["Forward Single"][ref]
-            if input_dict[umi_key]["Reverse Single"]:
+            elif input_dict[umi_key]["Reverse Single"]:
                 if ref in input_dict[umi_key]["Reverse Single"]:
                     ref_sup["Reverse Single"][ref] += input_dict[umi_key]["Reverse Single"][ref]
-            if input_dict[umi_key]["Variant Hits"]:
+            elif input_dict[umi_key]["Variant Hits"]:
                 if input_dict[umi_key]["Variant Hits"]["FFPE Hits"]:
                     if ref in input_dict[umi_key]["Variant Hits"]["FFPE Hits"]:
                         ref_sup["Paired"][ref] += input_dict[umi_key]["Variant Hits"]["FFPE Hits"][ref][
@@ -151,7 +170,7 @@ def sup_count(input_dict, n_ref, n_alt):
                             "Forward Molecule"][ref]
                         ref_sup["Paired"][ref] += input_dict[umi_key]["Variant Hits"]["Reference Hits"][ref][
                             "Reverse Molecule"][ref]
-                if input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"]:
+                elif input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"]:
                     if ref in input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"]:
                         ref_sup["Paired"][ref] += input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][ref][
                             "Forward Molecule"][ref]
@@ -264,6 +283,7 @@ def pos_hits(inp_lst, record_pos):
     n_g = 0
     n_c = 0
     n_n = 0
+    n_d = 0
     # count = 0
     for read in inp_lst:
         # Gets the positions the sequence maps to in the reference
@@ -279,23 +299,6 @@ def pos_hits(inp_lst, record_pos):
             read_seq = list(read_seq)
             # Gets the base present at the index position of the variant
             read_base = read_seq[ind_pos]
-            # # If the read is reverse, get the original read sequence
-            # if read.is_reverse:
-            #     print("The read aligns to the reverse strand")
-            #     print("The query-sequence is : " + str(read_seq))
-            #     print("The length of the sequence is : " + str(len(read_seq)))
-            #     print("The base position is : " + str(ind_pos))
-            #     # Retrieve the base present at the index position where the variant is located
-            #     read_base = read_seq[ind_pos]
-            #     print("The selected rev base is : " + read_base)
-            # else:
-            #     print("The read aligns to the forward strand")
-            #     print("The forward-sequence is : " + str(read_seq))
-            #     print("The base position is : " + str(ind_pos))
-            #
-            #     read_base = read_seq[ind_pos]
-            #     print("The selected forward base is : " + read_base)
-
             # Checks the value of the base, adds to a counter based on its value
             if read_base == 'A':
                 n_a += 1
@@ -307,13 +310,11 @@ def pos_hits(inp_lst, record_pos):
                 n_c += 1
             else:
                 n_n += 1
-
-        except ValueError as e:
-            print("Error: Variant position: " + str(record_pos) + " not in the short read")
-            print(e)
-            print(inp_lst)
+        # If the reference-base is not found, the mutation is noted as a deletion
+        except ValueError:
+            n_d += 1
     # Returns a dict with the counts for each base respectively
-    pos_dict = {"A": n_a, "T": n_t, "G": n_g, "C": n_c, "N": n_n}
+    pos_dict = {"A": n_a, "T": n_t, "G": n_g, "C": n_c, "N": n_n, "-": n_d}
     return pos_dict
 
 
