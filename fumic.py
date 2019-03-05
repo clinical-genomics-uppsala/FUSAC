@@ -415,5 +415,5 @@ def main():
     vcf_extract(vcf_file, bam_file)
     bam_file.close()
 
-
-main()
+if __name__ == "__main__":
+    main()
