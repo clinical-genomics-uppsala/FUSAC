@@ -1,9 +1,9 @@
 # First attempt to read in BAM as SAM
 # !/usr/bin/env python3
 
-# FUMIC (FFPE-artefact UMI-based Mapper for Imputation in Cancer-sample tissue data)
+# FUMIC - FFPE-artefact UMI-based Mapper for Imputation in Cancer-sample tissue data
 # By Hugo Swenson, with assistance from Patrik Smeds and Claes Edenvall
-# For Klinisk Genomik, Uppsala Akademiska Sjukhus 2019
+# Made for Klinisk Genetik, Uppsala Akademiska Sjukhus 2019
 
 # Imports modules
 import pysam
@@ -24,7 +24,8 @@ def vcf_extract(vcf_file, bam_file):
     vcf_head.filters.add('FFPE', None, None, 'FFPE Artefact')
     vcf_head.formats.add("UMI", ".", "String", "UMI information for reference,variant Paired:SForward:SReverse")
     n_vcf = pysam.VariantFile("output_vcf.vcf", mode='w', header=vcf_head)
-    # Initialize a null list
+
+    # Initialize null lists
     # Retrieve the position from every record in the VCF file
     for record in vcf_file.fetch():
         bam_lst = []
@@ -59,16 +60,18 @@ def vcf_extract(vcf_file, bam_file):
 
         # Calls the pos_checker function to obtain ffpe_data
         ffpe_data = (pos_checker(bam_lst, record_pos, n_alt, n_ref))
-        pos_sup = sup_count(ffpe_data, n_ref, n_alt)
-        print(pos_sup)
+
+        # Calls the sup_count function to obtain the support for each nucleotide called
+        ref_sup = sup_count(ffpe_data, n_ref)
+        alt_sup = sup_count(ffpe_data, n_alt)
+        pos_sup = {"Variant": alt_sup, "Reference": ref_sup}
+
         for var in n_alt:
             var_sd = str(pos_sup["Variant"]["Paired"][var]) + ":" + str(pos_sup["Variant"][
                         "Forward Single"][var]) + ":" + str(pos_sup["Variant"]["Reverse Single"][var])
         for ref in n_ref:
             ref_sd = str(pos_sup["Reference"]["Paired"][ref]) + ":" + str(pos_sup["Reference"]["Forward Single"][
                                                 ref]) + ":" + str(pos_sup["Reference"]["Reverse Single"][ref])
-        print(var_sd)
-        print(ref_sd)
         for sample in n_cop.samples:
             n_cop.samples[sample]['UMI'] = var_sd + ref_sd
         # umi_lst = []
@@ -88,96 +91,123 @@ def vcf_extract(vcf_file, bam_file):
         n_vcf.write(n_cop)
 
 
-def sup_count(input_dict, n_ref, n_alt):
-    ref_sup = {"Forward Single": {}, "Reverse Single": {}, "Paired": {}}
-    alt_sup = {"Forward Single": {}, "Reverse Single": {}, "Paired": {}}
-    for alt in n_alt:
-        alt_sup["Forward Single"][alt] = 0
-        alt_sup["Reverse Single"][alt] = 0
-        alt_sup["Paired"][alt] = 0
+def sup_count(input_dict, nuc):
+    n_sup = {"Forward Single": {}, "Reverse Single": {}, "Paired": {}}
+
+    for n in nuc:
+        n_sup["Forward Single"][n] = 0
+        n_sup["Reverse Single"][n] = 0
+        n_sup["Paired"][n] = 0
         for umi_key in input_dict:
             # Iterates through each alternative allele called by the variant caller
             # Counts the no. molecules supporting the variant in the single forward molecule
-            if input_dict[umi_key]["Forward Single"]:
-                if alt in input_dict[umi_key]["Forward Single"]:
-                    alt_sup["Forward Single"][alt] += input_dict[umi_key]["Forward Single"][alt]
+            if input_dict[umi_key]["Forward Single"]["Forward String"] or input_dict[umi_key]["Forward Single"][
+                    "Reverse String"]:
+                if n in input_dict[umi_key]["Forward Single"]["Forward string"]:
+                    n_sup["Forward Single"][n] += input_dict[umi_key]["Forward Single"]["Forward String"][n]
+                if n in input_dict[umi_key]["Forward Single"]["Reverse string"]:
+                    n_sup["Forward Single"][n] += input_dict[umi_key]["Forward Single"]["Reverse String"][n]
+
             # Counts the no. molecules supporting the variant in the single reverse molecule
-            if input_dict[umi_key]["Reverse Single"]:
-                if alt in input_dict[umi_key]["Reverse Single"]:
-                    alt_sup["Reverse Single"][alt] += input_dict[umi_key]["Reverse Single"][alt]
+            if input_dict[umi_key]["Reverse Single"]["Forward String"] or input_dict[umi_key]["Reverse Single"][
+                    "Reverse String"]:
+                if n in input_dict[umi_key]["Reverse Single"]["Forward string"]:
+                    n_sup["Reverse Single"][n] += input_dict[umi_key]["Reverse Single"]["Forward String"][n]
+                if n in input_dict[umi_key]["Reverse Single"]["Reverse string"]:
+                    n_sup["Reverse Single"][n] += input_dict[umi_key]["Reverse Single"]["Reverse String"][n]
+
             # Sees if the dict variant hits is empty, if not, counts the no molecules supporting the variant as FFPE
             if input_dict[umi_key]["Variant Hits"]:
                 if input_dict[umi_key]["Variant Hits"]["FFPE Hits"]:
-                    if alt in input_dict[umi_key]["Variant Hits"]["FFPE Hits"]:
-                        alt_sup["Paired"][alt] += input_dict[umi_key]["Variant Hits"]["FFPE Hits"][alt][
-                            "Forward Molecule"][alt]
-                        alt_sup["Paired"][alt] += input_dict[umi_key]["Variant Hits"]["FFPE Hits"][alt][
-                            "Reverse Molecule"][alt]
+                    if n in input_dict[umi_key]["Variant Hits"]["FFPE Hits"]:
+                        if input_dict[umi_key]["Variant Hits"]["FFPE Hits"][n]["Forward Molecule"]:
+                            if n in input_dict[umi_key]["Variant Hits"]["FFPE Hits"][n]["Forward Molecule"][
+                                    "Forward String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["FFPE Hits"][n][
+                                    "Forward Molecule"]["Forward String"][n]
+                            if n in input_dict[umi_key]["Variant Hits"]["FFPE Hits"][n]["Forward Molecule"][
+                                    "Reverse String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["FFPE Hits"][n][
+                                    "Forward Molecule"]["Reverse String"][n]
+                        if input_dict[umi_key]["Variant Hits"]["FFPE Hits"][n]["Reverse Molecule"]:
+                            if n in input_dict[umi_key]["Variant Hits"]["FFPE Hits"][n]["Reverse Molecule"][
+                                    "Forward String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["FFPE Hits"][n][
+                                    "Reverse Molecule"]["Forward String"][n]
+                            if n in input_dict[umi_key]["Variant Hits"]["FFPE Hits"][n]["Reverse Molecule"][
+                                    "Reverse String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["FFPE Hits"][n][
+                                    "Reverse Molecule"]["Reverse String"][n]
+
                 # Sees if the dict variant hits is empty, if not, counts the no molecules supporting the variant as
                 # a regular mutation
                 if input_dict[umi_key]["Variant Hits"]["Mutation Hits"]:
-                    if alt in input_dict[umi_key]["Variant Hits"]["Mutation Hits"]:
-                        alt_sup["Paired"][alt] += input_dict[umi_key]["Variant Hits"]["Mutation Hits"][alt][
-                            "Forward Molecule"][alt]
-                        alt_sup["Paired"][alt] += input_dict[umi_key]["Variant Hits"]["Mutation Hits"][alt][
-                            "Reverse Molecule"][alt]
+                    if n in input_dict[umi_key]["Variant Hits"]["Mutation Hits"]:
+                        if input_dict[umi_key]["Variant Hits"]["Mutation Hits"][n]["Forward Molecule"]:
+                            if n in input_dict[umi_key]["Variant Hits"]["Mutation Hits"][n]["Forward Molecule"][
+                                    "Forward String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["Mutation Hits"][n][
+                                    "Forward Molecule"]["Forward String"][n]
+                            if n in input_dict[umi_key]["Variant Hits"]["Mutation Hits"][n]["Forward Molecule"][
+                                    "Reverse String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["Mutation Hits"][n][
+                                    "Forward Molecule"]["Reverse String"][n]
+                        if input_dict[umi_key]["Variant Hits"]["Mutation Hits"][n]["Reverse Molecule"]:
+                            if n in input_dict[umi_key]["Variant Hits"]["Mutation Hits"][n]["Reverse Molecule"][
+                                    "Forward String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["Mutation Hits"][n][
+                                    "Reverse Molecule"]["Forward String"][n]
+                            if n in input_dict[umi_key]["Variant Hits"]["Mutation Hits"][n]["Reverse Molecule"][
+                                    "Reverse String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["Mutation Hits"][n][
+                                    "Reverse Molecule"]["Reverse String"][n]
+
                 # Sees if the dict Ref Hits is empty, if not, counts the no molecules supporting the variant as
                 # a reference (ie: not mutated)
                 if input_dict[umi_key]["Variant Hits"]["Reference Hits"]:
-                    if alt in input_dict[umi_key]["Variant Hits"]["Reference Hits"]:
-                        alt_sup["Paired"][alt] += input_dict[umi_key]["Variant Hits"]["Reference Hits"][alt][
-                            "Forward Molecule"][alt]
-                        alt_sup["Paired"][alt] += input_dict[umi_key]["Variant Hits"]["Reference Hits"][alt][
-                            "Reverse Molecule"][alt]
+                    if n in input_dict[umi_key]["Variant Hits"]["Reference Hits"]:
+                        if input_dict[umi_key]["Variant Hits"]["Reference Hits"][n]["Forward Molecule"]:
+                            if n in input_dict[umi_key]["Variant Hits"]["Reference Hits"][n]["Forward Molecule"][
+                                    "Forward String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["Reference Hits"][n][
+                                    "Forward Molecule"]["Forward String"][n]
+                            if n in input_dict[umi_key]["Variant Hits"]["Reference Hits"][n]["Forward Molecule"][
+                                    "Reverse String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["Reference Hits"][n][
+                                    "Forward Molecule"]["Reverse String"][n]
+                        if input_dict[umi_key]["Variant Hits"]["Reference Hits"][n]["Reverse Molecule"]:
+                            if n in input_dict[umi_key]["Variant Hits"]["Reference Hits"][n]["Reverse Molecule"][
+                                    "Forward String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["Reference Hits"][n][
+                                    "Reverse Molecule"]["Forward String"][n]
+                            if n in input_dict[umi_key]["Variant Hits"]["Reference Hits"][n]["Reverse Molecule"][
+                                    "Reverse String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["Reference Hits"][n][
+                                    "Reverse Molecule"]["Reverse String"][n]
+
                 # Sees if the dict Other Mutation Hits is empty, if not, counts the no molecules supporting the variant
                 # as another form of mutation
                 if input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"]:
-                    if alt in input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"]:
-                        alt_sup["Paired"][alt] += input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][alt][
-                            "Forward Molecule"][alt]
-                        alt_sup["Paired"][alt] += input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][alt][
-                            "Reverse Molecule"][alt]
-    # Iterates through each base present in the reference
-    for ref in n_ref:
-        ref_sup["Forward Single"][ref] = 0
-        ref_sup["Reverse Single"][ref] = 0
-        ref_sup["Paired"][ref] = 0
-        for umi_key in input_dict:
-            if input_dict[umi_key]["Forward Single"]:
-                if ref in input_dict[umi_key]["Forward Single"]:
-                    ref_sup["Forward Single"][ref] += input_dict[umi_key]["Forward Single"][ref]
-            elif input_dict[umi_key]["Reverse Single"]:
-                if ref in input_dict[umi_key]["Reverse Single"]:
-                    ref_sup["Reverse Single"][ref] += input_dict[umi_key]["Reverse Single"][ref]
-            elif input_dict[umi_key]["Variant Hits"]:
-                if input_dict[umi_key]["Variant Hits"]["FFPE Hits"]:
-                    if ref in input_dict[umi_key]["Variant Hits"]["FFPE Hits"]:
-                        ref_sup["Paired"][ref] += input_dict[umi_key]["Variant Hits"]["FFPE Hits"][ref][
-                            "Forward Molecule"][ref]
-                        ref_sup["Paired"][ref] += input_dict[umi_key]["Variant Hits"]["FFPE Hits"][ref][
-                            "Reverse Molecule"][ref]
-                if input_dict[umi_key]["Variant Hits"]["Mutation Hits"]:
-                    if ref in input_dict[umi_key]["Variant Hits"]["Mutation Hits"]:
-                        if input_dict[umi_key]["Variant Hits"]["Mutation Hits"][ref]["Forward Molecule"]:
-                            ref_sup["Paired"][ref] += input_dict[umi_key]["Variant Hits"]["Mutation Hits"][
-                                "Forward Molecule"][ref]
-                        if input_dict[umi_key]["Variant Hits"]["Mutation Hits"][ref]["Reverse Molecule"]:
-                            ref_sup["Paired"][ref] += input_dict[umi_key]["Variant Hits"]["Mutation Hits"][
-                                "Reverse Molecule"][ref]
-                if input_dict[umi_key]["Variant Hits"]["Reference Hits"]:
-                    if ref in input_dict[umi_key]["Variant Hits"]["Reference Hits"]:
-                        ref_sup["Paired"][ref] += input_dict[umi_key]["Variant Hits"]["Reference Hits"][ref][
-                            "Forward Molecule"][ref]
-                        ref_sup["Paired"][ref] += input_dict[umi_key]["Variant Hits"]["Reference Hits"][ref][
-                            "Reverse Molecule"][ref]
-                elif input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"]:
-                    if ref in input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"]:
-                        ref_sup["Paired"][ref] += input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][ref][
-                            "Forward Molecule"][ref]
-                        ref_sup["Paired"][ref] += input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][ref][
-                            "Reverse Molecule"][ref]
-    pos_sup = {"Variant": alt_sup, "Reference": ref_sup}
-    return pos_sup
+                    if n in input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"]:
+                        if input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][n]["Forward Molecule"]:
+                            if n in input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][n][
+                                    n]["Forward Molecule"]["Forward String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][
+                                    n]["Forward Molecule"]["Forward String"][n]
+                            if n in input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][n][
+                                    "Forward Molecule"]["Reverse String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][
+                                    n]["Forward Molecule"]["Reverse String"][n]
+                        if input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][n]["Reverse Molecule"]:
+                            if n in input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][n][
+                                    "Reverse Molecule"]["Forward String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][
+                                    n]["Reverse Molecule"]["Forward String"][n]
+                            if n in input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][n][
+                                    "Reverse Molecule"]["Reverse String"]:
+                                n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"]["Other Mutation Hits"][
+                                    n]["Reverse Molecule"]["Reverse String"][n]
+    return n_sup
 
 
 def pos_checker(bam_lst, record_pos, ref_var, ref_base):
@@ -200,6 +230,7 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
             brc = umi.split("+")
             umi_l = brc[0]
             umi_r = brc[1]
+
             # Checks read polarity to see whether or not it is reverse paired
             strand = "Forward_Molecule"
             if read.is_read1:
@@ -224,11 +255,8 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
             try:
                 umi_dict[umi_id][strand].append(read)
             except KeyError:
-                umi_add = {"Forward_Molecule": [], "Reverse_Molecule": []}
-                umi_dict[umi_id] = umi_add
+                umi_dict[umi_id] = {"Forward_Molecule": [], "Reverse_Molecule": []}
                 umi_dict[umi_id][strand].append(read)
-        f_hits = {}
-        r_hits = {}
         f_s_hits = {}
         r_s_hits = {}
         umi_dict = {k: v for k, v in umi_dict.items() if v}
@@ -241,22 +269,11 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
             if f_lst:
                 if r_lst:
                     counter += 1
-                    # print("Forward_lst")
-                    # print(f_lst)
-                    # print("Reverse_lst")
-                    # print(r_lst)
-                    # print(" Variant position : " + str(record_pos))
                     base_res["Forward Reads"] = f_lst
                     base_res["Reverse Reads"] = r_lst
-                    f_hits[umi_key] = pos_hits(f_lst, record_pos)
-                    r_hits[umi_key] = pos_hits(r_lst, record_pos)
-                    base_res["Forward Hits"] = f_hits
-                    base_res["Reverse Hits"] = r_hits
-                    var_dict = ffpe_finder(base_res, ref_var, ref_base, umi_key)
-                    # print("Forward Molecule Hits")
-                    # print(f_hits)
-                    # print("Reverse Molecule hits")
-                    # print(r_hits)
+                    base_res["Forward Hits"] = pos_hits(f_lst, record_pos)
+                    base_res["Reverse Hits"] = pos_hits(r_lst, record_pos)
+                    var_dict = ffpe_finder(base_res, ref_var, ref_base)
             elif f_lst:
                 if not r_lst:
                     f_lst = umi_dict[umi_key]["Forward_Molecule"]
@@ -266,10 +283,6 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
                     r_lst = umi_dict[umi_key]["Reverse_Molecule"]
                     r_s_hits = pos_hits(r_lst, record_pos)
             pos_res[umi_key] = {"Forward Single": f_s_hits, "Reverse Single": r_s_hits, "Variant Hits": var_dict}
-            # print(pos_res)
-        #     if counter == 300:
-        #         break
-        # exit()
     except KeyError:
         print("ERROR: The requested key does not exist")
     return pos_res
@@ -278,12 +291,18 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
 def pos_hits(inp_lst, record_pos):
     # Loops through each key and its respective reads to extract their variant position data and then counts
     # The no. hits for each respective letter for this position
-    n_a = 0
-    n_t = 0
-    n_g = 0
-    n_c = 0
-    n_n = 0
-    n_d = 0
+    n_a_f = 0
+    n_t_f = 0
+    n_g_f = 0
+    n_c_f = 0
+    n_n_f = 0
+    n_d_f = 0
+    n_a_r = 0
+    n_t_r = 0
+    n_g_r = 0
+    n_c_r = 0
+    n_n_r = 0
+    n_d_r = 0
     # count = 0
     for read in inp_lst:
         # Gets the positions the sequence maps to in the reference
@@ -300,53 +319,83 @@ def pos_hits(inp_lst, record_pos):
             # Gets the base present at the index position of the variant
             read_base = read_seq[ind_pos]
             # Checks the value of the base, adds to a counter based on its value
-            if read_base == 'A':
-                n_a += 1
-            elif read_base == 'T':
-                n_t += 1
-            elif read_base == 'G':
-                n_g += 1
-            elif read_base == 'C':
-                n_c += 1
+            if read.is_reverse:
+                if read_base == 'A':
+                    n_a_r += 1
+                elif read_base == 'T':
+                    n_t_r += 1
+                elif read_base == 'G':
+                    n_g_r += 1
+                elif read_base == 'C':
+                    n_c_r += 1
+                else:
+                    n_n_r += 1
             else:
-                n_n += 1
+                if read_base == 'A':
+                    n_a_f += 1
+                elif read_base == 'T':
+                    n_t_f += 1
+                elif read_base == 'G':
+                    n_g_f += 1
+                elif read_base == 'C':
+                    n_c_f += 1
+                else:
+                    n_n_f += 1
         # If the reference-base is not found, the mutation is noted as a deletion
         except ValueError:
-            n_d += 1
+            if read.is_reverse:
+                n_d_r += 1
+            else:
+                n_d_f += 1
     # Returns a dict with the counts for each base respectively
-    pos_dict = {"A": n_a, "T": n_t, "G": n_g, "C": n_c, "N": n_n, "-": n_d}
+    pos_dict = {"Forward string": {"A": n_a_f, "T": n_t_f, "G": n_g_f, "C": n_c_f, "N": n_n_f, "-": n_d_f},
+                "Reverse String": {"A": n_a_r, "T": n_t_r, "G": n_g_r, "C": n_c_r, "N": n_n_r, "-": n_d_r}}
     return pos_dict
 
 
-def ffpe_finder(base_res, ref_var, ref_base, umi_key):
+def ffpe_finder(base_res, ref_var, ref_base):
     ffpe_dict = {}
     mut_dict = {}
     ref_dict = {}
     out_dict = {}
-
     try:
-        # Checks if the umi-key is present in the reverse molecule
         # Retrieves the forward and reverse base hits for the key value
-        f_hits = base_res["Forward Hits"][umi_key]
-        r_hits = base_res["Reverse Hits"][umi_key]
+        f1_hits = base_res["Forward Hits"]["Forward String"]
+        r2_hits = base_res["Forward Hits"]["Reverse String"]
+        f2_hits = base_res["Reverse Hits"]["Forward String"]
+        r1_hits = base_res["Reverse Hits"]["Reverse String"]
         # Iterates through each variant called by the program
         for var_call in ref_var:
             for r_base in ref_base:
-                # Sees if the variant is present in both molecules, if so, it is not classified as a FFPE
-                if f_hits[var_call] > 0 and r_hits[var_call] > 0:
-                    mut_dict[var_call] = {"Forward Molecule": f_hits, "Reverse Molecule": r_hits}
-                # Sees if the variant is present in only one molecule, if so it is determined to be a FFPE
-                elif f_hits[var_call] > 0 and r_hits[var_call] == 0:
-                    ffpe_dict[var_call] = {"Forward Molecule": f_hits, "Reverse Molecule": r_hits}
-                elif r_hits[var_call] > 0 and f_hits[var_call] == 0:
-                    ffpe_dict[var_call] = {"Forward Molecule": f_hits, "Reverse Molecule": r_hits}
-                # If none of the above if statements have been fulfilled, sees if the reference molecule has a count
-                # Exceeding 0 in both of the molecules, if so it is deemed not a mutation and added to the ref_dict
-                elif f_hits[r_base] > 0 and r_hits[r_base] > 0:
-                    ref_dict[r_base] = {"Forward Molecule": f_hits, "Reverse Molecule": r_hits}
+                # Sees if the variant exists alongside the reference, if so it is deemed an FFPE
+                if f1_hits[var_call] > 0 and r2_hits[var_call] > 0:
+                    mut_dict[var_call] = {"Forward Molecule": base_res["Forward Hits"],
+                                          "Reverse Molecule": base_res["Reverse Hits"]}
+                elif f2_hits[var_call] > 0 and r1_hits[var_call] > 0:
+                    mut_dict[var_call] = {"Forward Molecule": base_res["Forward Hits"],
+                                          "Reverse Molecule": base_res["Reverse Hits"]}
+                elif f1_hits[var_call] > 0 and r2_hits[var_call] == 0:
+                    ffpe_dict[var_call] = {"Forward Molecule": base_res["Forward Hits"],
+                                           "Reverse Molecule": base_res["Reverse Hits"]}
+                elif f1_hits[var_call] == 0 and r2_hits[var_call] > 0:
+                    ffpe_dict[var_call] = {"Forward Molecule": base_res["Forward Hits"],
+                                           "Reverse Molecule": base_res["Reverse Hits"]}
+                elif f2_hits[var_call] > 0 and r1_hits[var_call] == 0:
+                    ffpe_dict[var_call] = {"Forward Molecule": base_res["Forward Hits"],
+                                           "Reverse Molecule": base_res["Reverse Hits"]}
+                elif f2_hits[var_call] == 0 and r2_hits[var_call] > 0:
+                    ffpe_dict[var_call] = {"Forward Molecule": base_res["Forward Hits"],
+                                           "Reverse Molecule": base_res["Reverse Hits"]}
+                elif f1_hits[ref_base] > 0 and r2_hits[r_base] > 0:
+                    ref_dict[r_base] = {"Forward Molecule": base_res["Forward Hits"],
+                                        "Reverse Molecule": base_res["Reverse Hits"]}
+                elif f2_hits[ref_base] > 0 and r1_hits[r_base] > 0:
+                    ref_dict[r_base] = {"Forward Molecule": base_res["Forward Hits"],
+                                        "Reverse Molecule": base_res["Reverse Hits"]}
                 # If none of the above statements are fulfilled, then it is deemed as another form of mutation
                 else:
-                    mut_dict[var_call] = {"Forward Molecule": f_hits, "Reverse Molecule": r_hits}
+                    mut_dict[var_call] = {"Forward Molecule": base_res["Forward Hits"],
+                                          "Reverse Molecule": base_res["Reverse Hits"]}
     except KeyError as e:
         print("No match for: " + str(e) + " found, comparison not possible")
         # Returns both dictionaries in a list
