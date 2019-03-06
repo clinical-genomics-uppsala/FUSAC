@@ -134,7 +134,7 @@ class TestCase(unittest.TestCase):
     def test_sup_count(self):
         ref_var = "C"
         ref_bas = "T"
-        umi_key = "AAATTTCCCGGG"
+        umi_key = "AAATTT_CCCGGG"
 
         c_ffpe_d = {}
         f_ffpe_d = {}
@@ -164,6 +164,31 @@ class TestCase(unittest.TestCase):
         self.assertEqual(fumic.sup_count(m_ffpe_d, ref_var)["Paired"]["Forward Molecule"][ref_var], 2)
         self.assertEqual(fumic.sup_count(m_ffpe_d, ref_bas)["Paired"]["Reverse Molecule"][ref_bas], 0)
         self.assertEqual(fumic.sup_count(m_ffpe_d, ref_var)["Paired"]["Reverse Molecule"][ref_var], 2)
+
+
+    def test_pos_checker(self):
+        rec_pos = 1
+        ref_var = "C"
+        ref_bas = "T"
+        umi_key = "AAATTT_CCCGGG"
+
+        c_ffpe_d = {}
+        f_ffpe_d = {}
+        m_ffpe_d = {}
+
+        c_ffpe = fumic.ffpe_finder(self.c_base_res, ref_var, ref_bas)
+        f_ffpe = fumic.ffpe_finder(self.f_base_res, ref_var, ref_bas)
+        m_ffpe = fumic.ffpe_finder(self.m_base_res, ref_var, ref_bas)
+
+        sing_dict = {"Forward Single": {}, "Reverse Single": {}}
+
+        c_ffpe_d[umi_key] = {"Single Hits": sing_dict, "Variant Hits": c_ffpe}
+        f_ffpe_d[umi_key] = {"Single Hits": sing_dict, "Variant Hits": f_ffpe}
+        m_ffpe_d[umi_key] = {"Single Hits": sing_dict, "Variant Hits": m_ffpe}
+
+        self.assertDictEqual(fumic.pos_checker(self.clea_lst, rec_pos, ref_var, ref_bas), c_ffpe_d)
+        self.assertDictEqual(fumic.pos_checker(self.ffpe_lst, rec_pos, ref_var, ref_bas), f_ffpe_d)
+        self.assertDictEqual(fumic.pos_checker(self.muta_lst, rec_pos, ref_var, ref_bas), m_ffpe_d)
 
 
 if __name__ == '__main__':
