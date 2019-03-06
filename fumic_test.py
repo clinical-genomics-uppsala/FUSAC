@@ -150,14 +150,21 @@ class TestCase(unittest.TestCase):
         f_ffpe_d[umi_key] = {"Single Hits": sing_dict, "Variant Hits": f_ffpe}
         m_ffpe_d[umi_key] = {"Single Hits": sing_dict, "Variant Hits": m_ffpe}
 
-        self.assertEqual(fumic.sup_count(c_ffpe_d, ref_bas)["Paired"][ref_bas], 4)
-        self.assertEqual(fumic.sup_count(c_ffpe_d, ref_var)["Paired"][ref_var], 0)
+        self.assertEqual(fumic.sup_count(c_ffpe_d, ref_bas)["Paired"]["Forward Molecule"][ref_bas], 2)
+        self.assertEqual(fumic.sup_count(c_ffpe_d, ref_var)["Paired"]["Forward Molecule"][ref_var], 0)
+        self.assertEqual(fumic.sup_count(c_ffpe_d, ref_bas)["Paired"]["Reverse Molecule"][ref_bas], 2)
+        self.assertEqual(fumic.sup_count(c_ffpe_d, ref_var)["Paired"]["Reverse Molecule"][ref_var], 0)
 
-        self.assertEqual(fumic.sup_count(f_ffpe_d, ref_bas)["Paired"][ref_bas], 2)
-        self.assertEqual(fumic.sup_count(f_ffpe_d, ref_var)["Paired"][ref_var], 2)
+        self.assertEqual(fumic.sup_count(f_ffpe_d, ref_bas)["Paired"]["Forward Molecule"][ref_bas], 1)
+        self.assertEqual(fumic.sup_count(f_ffpe_d, ref_var)["Paired"]["Forward Molecule"][ref_var], 1)
+        self.assertEqual(fumic.sup_count(f_ffpe_d, ref_bas)["Paired"]["Reverse Molecule"][ref_bas], 1)
+        self.assertEqual(fumic.sup_count(f_ffpe_d, ref_var)["Paired"]["Reverse Molecule"][ref_var], 1)
 
-        self.assertEqual(fumic.sup_count(m_ffpe_d, ref_bas)["Paired"][ref_bas], 0)
-        self.assertEqual(fumic.sup_count(m_ffpe_d, ref_var)["Paired"][ref_var], 4)
+        self.assertEqual(fumic.sup_count(m_ffpe_d, ref_bas)["Paired"]["Forward Molecule"][ref_bas], 0)
+        self.assertEqual(fumic.sup_count(m_ffpe_d, ref_var)["Paired"]["Forward Molecule"][ref_var], 2)
+        self.assertEqual(fumic.sup_count(m_ffpe_d, ref_bas)["Paired"]["Reverse Molecule"][ref_bas], 0)
+        self.assertEqual(fumic.sup_count(m_ffpe_d, ref_var)["Paired"]["Reverse Molecule"][ref_var], 2)
+
 
 if __name__ == '__main__':
     unittest.main()

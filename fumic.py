@@ -294,7 +294,9 @@ def sup_count(input_dict, nuc):
     for n in nuc:
         n_sup["Forward Single"][n] = 0
         n_sup["Reverse Single"][n] = 0
-        n_sup["Paired"][n] = 0
+        n_sup["Paired"] = {"Forward Molecule": {}, "Reverse Molecule": {}}
+        n_sup["Paired"]["Forward Molecule"][n] = 0
+        n_sup["Paired"]["Reverse Molecule"][n] = 0
         for umi_key in input_dict:
             # Iterates through each alternative allele called by the variant caller
             # Counts the no. molecules supporting the variant in the single forward molecule
@@ -312,24 +314,23 @@ def sup_count(input_dict, nuc):
             # Sees if the dict variant hits is empty, if not, counts the no molecules supporting the variant as FFPE
             if input_dict[umi_key]["Variant Hits"]:
                 for v_h in input_dict[umi_key]["Variant Hits"]:
-                    print(v_h)
                     if input_dict[umi_key]["Variant Hits"][v_h]:
                         if input_dict[umi_key]["Variant Hits"][v_h]["Forward Molecule"]:
                             if input_dict[umi_key]["Variant Hits"][v_h]["Forward Molecule"]["Forward String"]:
                                 if n in input_dict[umi_key]["Variant Hits"][v_h]["Forward Molecule"]["Forward String"]:
-                                    n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"][v_h][
+                                    n_sup["Paired"]["Forward Molecule"][n] += input_dict[umi_key]["Variant Hits"][v_h][
                                         "Forward Molecule"]["Forward String"][n]
                                 if n in input_dict[umi_key]["Variant Hits"][v_h]["Forward Molecule"][
                                         "Reverse String"]:
-                                    n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"][v_h][
+                                    n_sup["Paired"]["Forward Molecule"][n] += input_dict[umi_key]["Variant Hits"][v_h][
                                         "Forward Molecule"]["Reverse String"][n]
                         if input_dict[umi_key]["Variant Hits"][v_h]["Reverse Molecule"]:
                             if input_dict[umi_key]["Variant Hits"][v_h]["Reverse Molecule"]["Forward String"]:
                                 if n in input_dict[umi_key]["Variant Hits"][v_h]["Reverse Molecule"]["Forward String"]:
-                                    n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"][v_h][
+                                    n_sup["Paired"]["Reverse Molecule"][n] += input_dict[umi_key]["Variant Hits"][v_h][
                                         "Reverse Molecule"]["Forward String"][n]
                                 if n in input_dict[umi_key]["Variant Hits"][v_h]["Forward Molecule"]["Reverse String"]:
-                                    n_sup["Paired"][n] += input_dict[umi_key]["Variant Hits"][v_h][
+                                    n_sup["Paired"]["Reverse Molecule"][n] += input_dict[umi_key]["Variant Hits"][v_h][
                                         "Reverse Molecule"]["Reverse String"][n]
     return n_sup
 
