@@ -140,9 +140,24 @@ class TestCase(unittest.TestCase):
         f_ffpe_d = {}
         m_ffpe_d = {}
 
-        c_ffpe = fumic.ffpe_finder(self.c_base_res, ref_var, ref_bas)
-        f_ffpe = fumic.ffpe_finder(self.f_base_res, ref_var, ref_bas)
-        m_ffpe = fumic.ffpe_finder(self.m_base_res, ref_var, ref_bas)
+        c_ffpe = {'FFPE Hits': {}, 'Mutation Hits': {}, 'Reference Hits': {'Forward Molecule': {
+            'Forward String': {'A': 0, 'T': 1, 'G': 0, 'C': 0, 'N': 0, '-': 0}, 'Reverse String': {
+                'A': 0, 'T': 1, 'G': 0, 'C': 0, 'N': 0, '-': 0}}, 'Reverse Molecule': {'Forward String': {
+                    'A': 0, 'T': 1, 'G': 0, 'C': 0, 'N': 0, '-': 0}, 'Reverse String': {
+                        'A': 0, 'T': 1, 'G': 0, 'C': 0, 'N': 0, '-': 0}}}, 'Other Mutation Hits': {}}
+
+        f_ffpe = {'FFPE Hits': {'Forward Molecule': {'Forward String': {
+            'A': 0, 'T': 0, 'G': 0, 'C': 1, 'N': 0, '-': 0},'Reverse String': {
+            'A': 0, 'T': 1, 'G': 0, 'C': 0, 'N': 0, '-': 0}}, 'Reverse Molecule': {
+                'Forward String': {'A': 0, 'T': 0, 'G': 0, 'C': 1, 'N': 0, '-': 0}, 'Reverse String': {
+                    'A': 0, 'T': 1, 'G': 0, 'C': 0, 'N': 0, '-': 0}}}, 'Mutation Hits': {}, 'Reference Hits': {},
+                    'Other Mutation Hits': {}}
+
+        m_ffpe = {'FFPE Hits': {}, 'Mutation Hits': {'Forward Molecule': {'Forward String': {
+            'A': 0, 'T': 0, 'G': 0, 'C': 1, 'N': 0, '-': 0}, 'Reverse String': {
+            'A': 0, 'T': 0, 'G': 0, 'C': 1, 'N': 0, '-': 0}}, 'Reverse Molecule': {
+            'Forward String': {'A': 0, 'T': 0, 'G': 0, 'C': 1, 'N': 0, '-': 0}, 'Reverse String': {
+                'A': 0, 'T': 0, 'G': 0, 'C': 1, 'N': 0, '-': 0}}}, 'Reference Hits': {}, 'Other Mutation Hits': {}}
 
         sing_dict = {"Forward Single": {}, "Reverse Single": {}}
 
@@ -176,9 +191,24 @@ class TestCase(unittest.TestCase):
         f_ffpe_d = {}
         m_ffpe_d = {}
 
-        c_ffpe = fumic.ffpe_finder(self.c_base_res, ref_var, ref_bas)
-        f_ffpe = fumic.ffpe_finder(self.f_base_res, ref_var, ref_bas)
-        m_ffpe = fumic.ffpe_finder(self.m_base_res, ref_var, ref_bas)
+        c_ffpe = {'FFPE Hits': {}, 'Mutation Hits': {}, 'Reference Hits': {'Forward Molecule': {
+            'Forward String': {'A': 0, 'T': 1, 'G': 0, 'C': 0, 'N': 0, '-': 0}, 'Reverse String': {
+                'A': 0, 'T': 1, 'G': 0, 'C': 0, 'N': 0, '-': 0}}, 'Reverse Molecule': {'Forward String': {
+            'A': 0, 'T': 1, 'G': 0, 'C': 0, 'N': 0, '-': 0}, 'Reverse String': {
+            'A': 0, 'T': 1, 'G': 0, 'C': 0, 'N': 0, '-': 0}}}, 'Other Mutation Hits': {}}
+
+        f_ffpe = {'FFPE Hits': {'Forward Molecule': {'Forward String': {
+            'A': 0, 'T': 0, 'G': 0, 'C': 1, 'N': 0, '-': 0}, 'Reverse String': {
+            'A': 0, 'T': 1, 'G': 0, 'C': 0, 'N': 0, '-': 0}}, 'Reverse Molecule': {
+            'Forward String': {'A': 0, 'T': 0, 'G': 0, 'C': 1, 'N': 0, '-': 0}, 'Reverse String': {
+                'A': 0, 'T': 1, 'G': 0, 'C': 0, 'N': 0, '-': 0}}}, 'Mutation Hits': {}, 'Reference Hits': {},
+            'Other Mutation Hits': {}}
+
+        m_ffpe = {'FFPE Hits': {}, 'Mutation Hits': {'Forward Molecule': {'Forward String': {
+            'A': 0, 'T': 0, 'G': 0, 'C': 1, 'N': 0, '-': 0}, 'Reverse String': {
+            'A': 0, 'T': 0, 'G': 0, 'C': 1, 'N': 0, '-': 0}}, 'Reverse Molecule': {
+            'Forward String': {'A': 0, 'T': 0, 'G': 0, 'C': 1, 'N': 0, '-': 0}, 'Reverse String': {
+                'A': 0, 'T': 0, 'G': 0, 'C': 1, 'N': 0, '-': 0}}}, 'Reference Hits': {}, 'Other Mutation Hits': {}}
 
         sing_dict = {"Forward Single": {}, "Reverse Single": {}}
 
