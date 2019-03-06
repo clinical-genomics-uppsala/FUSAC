@@ -97,43 +97,67 @@ class TestCase(unittest.TestCase):
 
     def test_ffpe_finder(self):
         # Test method for the ffpe_finder function
-        rec_pos = 1
         ref_var = "C"
         ref_bas = "T"
 
-        # print(fumic.ffpe_finder(self.c_base_res, ref_var, ref_bas))
-
         # First checks the clean list
-        self.assertEqual(fumic.ffpe_finder(self.c_base_res, ref_var, ref_bas)["Reference Hits"][ref_bas][
+        self.assertEqual(fumic.ffpe_finder(self.c_base_res, ref_var, ref_bas)["Reference Hits"][
                 "Forward Molecule"]["Forward String"][ref_bas], 1)
-        self.assertEqual(fumic.ffpe_finder(self.c_base_res, ref_var, ref_bas)["Reference Hits"][ref_bas][
+        self.assertEqual(fumic.ffpe_finder(self.c_base_res, ref_var, ref_bas)["Reference Hits"][
                 "Forward Molecule"]["Reverse String"][ref_bas], 1)
 
-        self.assertEqual(fumic.ffpe_finder(self.c_base_res, ref_var, ref_bas)["Reference Hits"][ref_bas][
+        self.assertEqual(fumic.ffpe_finder(self.c_base_res, ref_var, ref_bas)["Reference Hits"][
                 "Reverse Molecule"]["Forward String"][ref_bas], 1)
-        self.assertEqual(fumic.ffpe_finder(self.c_base_res, ref_var, ref_bas)["Reference Hits"][ref_bas][
+        self.assertEqual(fumic.ffpe_finder(self.c_base_res, ref_var, ref_bas)["Reference Hits"][
                 "Reverse Molecule"]["Reverse String"][ref_bas], 1)
 
         # Then checks the ffpe-list
-        self.assertEqual(fumic.ffpe_finder(self.f_base_res, ref_var, ref_bas)["FFPE Hits"][ref_var][
+        self.assertEqual(fumic.ffpe_finder(self.f_base_res, ref_var, ref_bas)["FFPE Hits"][
                              "Forward Molecule"]["Forward String"][ref_var], 1)
-        self.assertEqual(fumic.ffpe_finder(self.f_base_res, ref_var, ref_bas)["FFPE Hits"][ref_var][
+        self.assertEqual(fumic.ffpe_finder(self.f_base_res, ref_var, ref_bas)["FFPE Hits"][
                              "Forward Molecule"]["Reverse String"][ref_bas], 1)
-        self.assertEqual(fumic.ffpe_finder(self.f_base_res, ref_var, ref_bas)["FFPE Hits"][ref_var][
+        self.assertEqual(fumic.ffpe_finder(self.f_base_res, ref_var, ref_bas)["FFPE Hits"][
                              "Reverse Molecule"]["Forward String"][ref_var], 1)
-        self.assertEqual(fumic.ffpe_finder(self.f_base_res, ref_var, ref_bas)["FFPE Hits"][ref_var][
+        self.assertEqual(fumic.ffpe_finder(self.f_base_res, ref_var, ref_bas)["FFPE Hits"][
                              "Reverse Molecule"]["Reverse String"][ref_bas], 1)
 
         # Then checks the mut-list
-        self.assertEqual(fumic.ffpe_finder(self.m_base_res, ref_var, ref_bas)["Mutation Hits"][ref_var][
+        self.assertEqual(fumic.ffpe_finder(self.m_base_res, ref_var, ref_bas)["Mutation Hits"][
                              "Forward Molecule"]["Forward String"][ref_var], 1)
-        self.assertEqual(fumic.ffpe_finder(self.m_base_res, ref_var, ref_bas)["Mutation Hits"][ref_var][
+        self.assertEqual(fumic.ffpe_finder(self.m_base_res, ref_var, ref_bas)["Mutation Hits"][
                              "Forward Molecule"]["Reverse String"][ref_var], 1)
-        self.assertEqual(fumic.ffpe_finder(self.m_base_res, ref_var, ref_bas)["Mutation Hits"][ref_var][
+        self.assertEqual(fumic.ffpe_finder(self.m_base_res, ref_var, ref_bas)["Mutation Hits"][
                              "Reverse Molecule"]["Forward String"][ref_var], 1)
-        self.assertEqual(fumic.ffpe_finder(self.m_base_res, ref_var, ref_bas)["Mutation Hits"][ref_var][
+        self.assertEqual(fumic.ffpe_finder(self.m_base_res, ref_var, ref_bas)["Mutation Hits"][
                              "Reverse Molecule"]["Reverse String"][ref_var], 1)
 
+    def test_sup_count(self):
+        ref_var = "C"
+        ref_bas = "T"
+        umi_key = "AAATTTCCCGGG"
+
+        c_ffpe_d = {}
+        f_ffpe_d = {}
+        m_ffpe_d = {}
+
+        c_ffpe = fumic.ffpe_finder(self.c_base_res, ref_var, ref_bas)
+        f_ffpe = fumic.ffpe_finder(self.f_base_res, ref_var, ref_bas)
+        m_ffpe = fumic.ffpe_finder(self.m_base_res, ref_var, ref_bas)
+
+        sing_dict = {"Forward Single": {}, "Reverse Single": {}}
+
+        c_ffpe_d[umi_key] = {"Single Hits": sing_dict, "Variant Hits": c_ffpe}
+        f_ffpe_d[umi_key] = {"Single Hits": sing_dict, "Variant Hits": f_ffpe}
+        m_ffpe_d[umi_key] = {"Single Hits": sing_dict, "Variant Hits": m_ffpe}
+
+        self.assertEqual(fumic.sup_count(c_ffpe_d, ref_bas)["Paired"][ref_bas], 4)
+        self.assertEqual(fumic.sup_count(c_ffpe_d, ref_var)["Paired"][ref_var], 0)
+
+        self.assertEqual(fumic.sup_count(f_ffpe_d, ref_bas)["Paired"][ref_bas], 2)
+        self.assertEqual(fumic.sup_count(f_ffpe_d, ref_var)["Paired"][ref_var], 2)
+
+        self.assertEqual(fumic.sup_count(m_ffpe_d, ref_bas)["Paired"][ref_bas], 0)
+        self.assertEqual(fumic.sup_count(m_ffpe_d, ref_var)["Paired"][ref_var], 4)
 
 if __name__ == '__main__':
     unittest.main()
