@@ -67,11 +67,14 @@ def vcf_extract(vcf_file, bam_file):
         pos_sup = {"Variant": alt_sup, "Reference": ref_sup}
 
         for var in n_alt:
-            var_sd = str(pos_sup["Variant"]["Paired"][var]) + ":" + str(pos_sup["Variant"][
-                        "Forward Single"][var]) + ":" + str(pos_sup["Variant"]["Reverse Single"][var])
+            var_sd = str(pos_sup["Variant"]["Paired"]["Forward Molecule"][var]) + ":" + str(pos_sup[
+                    "Variant"]["Paired"]["Reverse Molecule"][var]) + ":" + str(pos_sup["Variant"][
+                            "Forward Single Molecule"][var]) + ":" + str(pos_sup["Variant"][
+                                "Reverse Single Molecule"][var])
         for ref in n_ref:
-            ref_sd = str(pos_sup["Reference"]["Paired"][ref]) + ":" + str(pos_sup["Reference"]["Forward Single"][
-                                                ref]) + ":" + str(pos_sup["Reference"]["Reverse Single"][ref])
+            ref_sd = str(pos_sup["Variant"]["Paired"]["Forward Molecule"][ref]) + ":" + str(pos_sup[
+                    "Variant"]["Paired"]["Reverse Molecule"][ref]) + ":" + str(pos_sup["Variant"]["Forward Single"][
+                        ref]) + ":" + str(pos_sup["Variant"]["Reverse Single"][ref])
         for sample in n_cop.samples:
             n_cop.samples[sample]['UMI'] = var_sd + ref_sd
         # umi_lst = []
@@ -96,7 +99,6 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
     base_res = {}
     var_dict = {}
     pos_res = {}
-    sing_dict = {}
     try:
         for read in bam_lst:
             # Gets the name of the sequence
@@ -115,57 +117,57 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
 
             # Checks read polarity to see whether or not it is reverse paired
             strand = "Forward_Molecule"
+            qr_nm = read.query_name
             if read.is_read1:
                 if read.is_reverse:
+                    # Forward direction on the reverse molecule
                     strand = "Reverse_Molecule"
-                    # umi_id = str(l_pos) + "_" + str(r_pos) + "_" + umi_l + "_" + umi_r
                     umi_id = umi_r + "_" + umi_l
                 else:
-                    # umi_id = str(l_pos) + "_" + str(r_pos) + "_" + umi_l + "_" + umi_r
+                    # Forward direction on the forward molecule
                     umi_id = umi_l + "_" + umi_r
             else:
                 if read.is_reverse:
-                    # umi_id = str(r_pos) + "_" + str(l_pos) + "_" + umi_r + "_" + umi_l
+                    # Reverse direction on the reverse molecule
                     umi_id = umi_l + "_" + umi_r
                 else:
+                    # Forward direction on the reverse molecule
                     strand = "Reverse_Molecule"
-                    # umi_id = str(r_pos) + "_" + str(l_pos) + "_" + umi_r + "_" + umi_l
                     umi_id = umi_r + "_" + umi_l
 
             # Adds every read to a list corresponding to its polarity, the lists in turn are part of a dict represented
             # By its unique id-tag created from its leftmost position and UMIs
             try:
-                umi_dict[umi_id][strand].append(read)
+                umi_dict[umi_id][strand][qr_nm].append(read)
             except KeyError:
-                umi_dict[umi_id] = {"Forward_Molecule": [], "Reverse_Molecule": []}
-                umi_dict[umi_id][strand].append(read)
+                if umi_id not in umi_dict:
+                    umi_dict[umi_id] = {"Forward_Molecule": {}, "Reverse_Molecule": {}}
+                umi_dict[umi_id][strand][qr_nm] = [read]
         f_s_hits = {}
         r_s_hits = {}
         umi_dict = {k: v for k, v in umi_dict.items() if v}
         counter = 0
+        # Iterates through every UMI-key in the dict
         for umi_key in umi_dict.keys():
+            # Retrieves the forward and reverse molecule hits from said UMI-key
             f_lst = umi_dict[umi_key]["Forward_Molecule"]
             r_lst = umi_dict[umi_key]["Reverse_Molecule"]
-            # If any of the keys have an empty list entry, removes this entry and only calculates the value for the
-            # Entry containing the correct value
+            # If any of the keys have an empty list entry, separately calculates the pos_hits and stores it
             if f_lst:
                 if r_lst:
                     counter += 1
-                    base_res["Forward Reads"] = f_lst
-                    base_res["Reverse Reads"] = r_lst
-                    base_res["Forward Hits"] = pos_hits(f_lst, record_pos)
-                    base_res["Reverse Hits"] = pos_hits(r_lst, record_pos)
+                    base_res["Forward Molecule Reads"] = f_lst
+                    base_res["Reverse Molecule Reads"] = r_lst
+                    base_res["Forward Molecule Hits"] = pos_hits(f_lst, record_pos)
+                    base_res["Reverse Molecule Hits"] = pos_hits(r_lst, record_pos)
                     var_dict = ffpe_finder(base_res, ref_var, ref_base)
-            elif f_lst:
-                if not r_lst:
-                    f_lst = umi_dict[umi_key]["Forward_Molecule"]
+                else:
                     f_s_hits = pos_hits(f_lst, record_pos)
             elif r_lst:
                 if not f_lst:
-                    r_lst = umi_dict[umi_key]["Reverse_Molecule"]
                     r_s_hits = pos_hits(r_lst, record_pos)
-            sing_dict = {"Forward Single": f_s_hits, "Reverse Single": r_s_hits}
-            pos_res[umi_key] = {"Single Hits": sing_dict, "Variant Hits": var_dict}
+            sing_dict = {"Forward Single Molecule": f_s_hits, "Reverse Single Molecule": r_s_hits}
+            pos_res[umi_key] = {"Single Hits": sing_dict, "Mate Hits": var_dict}
     except KeyError:
         print("ERROR: The requested key does not exist")
     return pos_res
@@ -174,66 +176,69 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
 def pos_hits(inp_lst, record_pos):
     # Loops through each key and its respective reads to extract their variant position data and then counts
     # The no. hits for each respective letter for this position
-    n_a_f = 0
-    n_t_f = 0
-    n_g_f = 0
-    n_c_f = 0
-    n_n_f = 0
-    n_d_f = 0
-    n_a_r = 0
-    n_t_r = 0
-    n_g_r = 0
-    n_c_r = 0
-    n_n_r = 0
-    n_d_r = 0
-    # count = 0
-    for read in inp_lst:
+    n_a = 0
+    n_t = 0
+    n_g = 0
+    n_c = 0
+    n_n = 0
+    n_d = 0
+
+    base_lst = ["A", "T", "G", "C", "N"]
+
+    # Iterates through every query_name entry within the given UMI-key for the direction
+    for query_name, read in inp_lst.items():
+        read_base = None
+        # If two entries exist for the same query name (ie: forward and reverse strand), calls the base_check function
+        # For both reads, then checks if these are identical or if they are different. If they are different, skips the
+        # Query-name pair as this  indicates some form of error, as the same molecule should have a identical base
+        if len(read) == 2:
+            read_base = base_check(read[0], record_pos)
+            r2b = base_check(read[1], record_pos)
+            if read_base != r2b:
+                continue
+        elif len(read) == 1:
+            # read_base = base_check(read, record_pos)
+            continue
+            #todo handle umapped mate
+        else:
+            raise Exception("No entries exceeds 2, cannot handle the no. reads: {}".format(len(read)))
+
+        # Checks the read_base and adds a count if it matches against any of the entries in the base_lst, if so adds
+        # To a counter
+        if read_base == base_lst[0]:
+            n_a += 1
+        elif read_base == base_lst[1]:
+            n_t += 1
+        elif read_base == base_lst[2]:
+            n_g += 1
+        elif read_base == base_lst[3]:
+            n_c += 1
+        elif read_base == base_lst[4]:
+            n_n += 1
+        else:
+            n_d += 1
+
+    # Returns a dict with the counts for each base respectively
+    pos_dict = {"A": n_a, "T": n_t, "G": n_g, "C": n_c, "N": n_n, "-": n_d}
+    return pos_dict
+
+
+def base_check(read, record_pos):
+    try:
         # Gets the positions the sequence maps to in the reference
         # Full length with soft clips is required for the index selection to be correct
         read_pos = read.get_reference_positions(full_length=True)
-        # read_pos_en = list(enumerate(read_pos, 0))
-        # print(read_pos_en)
-        try:
-            # Gets the index of the position the sequence maps to
-            ind_pos = read_pos.index(record_pos)
-            # Obtains the query sequence (the sequence as it were read)
-            read_seq = read.query_sequence
-            read_seq = list(read_seq)
-            # Gets the base present at the index position of the variant
-            read_base = read_seq[ind_pos]
-            # Checks the value of the base, adds to a counter based on its value
-            if read.is_reverse:
-                if read_base == 'A':
-                    n_a_r += 1
-                elif read_base == 'T':
-                    n_t_r += 1
-                elif read_base == 'G':
-                    n_g_r += 1
-                elif read_base == 'C':
-                    n_c_r += 1
-                else:
-                    n_n_r += 1
-            else:
-                if read_base == 'A':
-                    n_a_f += 1
-                elif read_base == 'T':
-                    n_t_f += 1
-                elif read_base == 'G':
-                    n_g_f += 1
-                elif read_base == 'C':
-                    n_c_f += 1
-                else:
-                    n_n_f += 1
-        # If the reference-base is not found, the mutation is noted as a deletion
-        except ValueError:
-            if read.is_reverse:
-                n_d_r += 1
-            else:
-                n_d_f += 1
-    # Returns a dict with the counts for each base respectively
-    pos_dict = {"Forward String": {"A": n_a_f, "T": n_t_f, "G": n_g_f, "C": n_c_f, "N": n_n_f, "-": n_d_f},
-                "Reverse String": {"A": n_a_r, "T": n_t_r, "G": n_g_r, "C": n_c_r, "N": n_n_r, "-": n_d_r}}
-    return pos_dict
+        ind_pos = read_pos.index(record_pos)
+        # Gets the index of the position the sequence maps to
+        # Obtains the query sequence (the sequence as it were read)
+        read_seq = read.query_sequence
+        read_seq = list(read_seq)
+        # Gets the base present at the index position of the variant
+        read_base = read_seq[ind_pos]
+        # Checks the value of the base, adds to a counter based on its value
+        return read_base
+    except ValueError:
+        pass
 
 
 def ffpe_finder(base_res, ref_var, ref_base):
@@ -243,47 +248,31 @@ def ffpe_finder(base_res, ref_var, ref_base):
     out_dict = {}
     try:
         # Retrieves the forward and reverse base hits for the key value
-        f1_hits = base_res["Forward Hits"]["Forward String"]
-        r2_hits = base_res["Forward Hits"]["Reverse String"]
-        f2_hits = base_res["Reverse Hits"]["Forward String"]
-        r1_hits = base_res["Reverse Hits"]["Reverse String"]
+        f_hits = base_res["Forward Molecule Hits"]
+        r_hits = base_res["Reverse Molecule Hits"]
         # Iterates through each variant called by the program
         for var_call in ref_var:
             for r_base in ref_base:
-                # Sees if the variant exists alongside the reference, if so it is deemed an FFPE
-                if f1_hits[var_call] > 0 and r2_hits[var_call] > 0:
-                    mut_dict = {"Forward Molecule": base_res["Forward Hits"],
-                                "Reverse Molecule": base_res["Reverse Hits"]}
-                elif f2_hits[var_call] > 0 and r1_hits[var_call] > 0:
-                    mut_dict = {"Forward Molecule": base_res["Forward Hits"],
-                                "Reverse Molecule": base_res["Reverse Hits"]}
-                elif f1_hits[var_call] > 0 and r2_hits[var_call] == 0:
-                    ffpe_dict = {"Forward Molecule": base_res["Forward Hits"],
-                                 "Reverse Molecule": base_res["Reverse Hits"]}
-                elif f1_hits[var_call] == 0 and r2_hits[var_call] > 0:
-                    ffpe_dict = {"Forward Molecule": base_res["Forward Hits"],
-                                 "Reverse Molecule": base_res["Reverse Hits"]}
-                elif f2_hits[var_call] > 0 and r1_hits[var_call] == 0:
-                    ffpe_dict = {"Forward Molecule": base_res["Forward Hits"],
-                                 "Reverse Molecule": base_res["Reverse Hits"]}
-                elif f2_hits[var_call] == 0 and r2_hits[var_call] > 0:
-                    ffpe_dict = {"Forward Molecule": base_res["Forward Hits"],
-                                 "Reverse Molecule": base_res["Reverse Hits"]}
-                elif f1_hits[r_base] > 0 and r2_hits[r_base] > 0:
-                    ref_dict = {"Forward Molecule": base_res["Forward Hits"],
-                                "Reverse Molecule": base_res["Reverse Hits"]}
-                elif f2_hits[r_base] > 0 and r1_hits[r_base] > 0:
-                    ref_dict = {"Forward Molecule": base_res["Forward Hits"],
-                                "Reverse Molecule": base_res["Reverse Hits"]}
+                # First checks if the variant is present in both forward and reverse molecule, if so it is deemed a
+                # Mutation
+                if f_hits[var_call] > 0 and r_hits[var_call] > 0:
+                    mut_dict = {"Forward Molecule": f_hits, "Reverse Molecule": r_hits}
+                # If the variant is present in only on of the strings, it is deemed a FFPE
+                elif f_hits[var_call] > 0 and r_hits[var_call] == 0:
+                    ffpe_dict = {"Forward Molecule": f_hits, "Reverse Molecule": r_hits}
+                elif f_hits[var_call] == 0 and r_hits[var_call] > 0:
+                    ffpe_dict = {"Forward Molecule": f_hits, "Reverse Molecule": r_hits}
+                # If both positions are deemed to be the reference, it is added as a reference to the dict
+                elif f_hits[r_base] > 0 and r_hits[r_base] > 0:
+                    ref_dict = {"Forward Molecule": f_hits, "Reverse Molecule": r_hits}
                 # If none of the above statements are fulfilled, then it is deemed as another form of mutation
                 else:
-                    mut_dict = {"Forward Molecule": base_res["Forward Hits"],
-                                "Reverse Molecule": base_res["Reverse Hits"]}
+                    out_dict = {"Forward Molecule": f_hits, "Reverse Molecule": r_hits}
     except KeyError as e:
         print("No match for: " + str(e) + " found, comparison not possible")
         # Returns both dictionaries in a list
     var_dict = {"FFPE Hits": ffpe_dict, "Mutation Hits": mut_dict, "Reference Hits": ref_dict,
-                "Other Mutation Hits": out_dict}
+                "Outlier Hits": out_dict}
     # print(var_lst)
     return var_dict
 
