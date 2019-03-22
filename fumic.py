@@ -128,6 +128,7 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
                     # Forward direction on the reverse molecule
                     strand = "String_2"
                     umi_id = umi_r + "_" + umi_l
+
             # Adds every read to a list corresponding to its polarity, the lists in turn are part of a dict represented
             # By its unique id-tag created from its leftmost position and UMIs
             try:
@@ -136,6 +137,7 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
                 if umi_id not in umi_dict:
                     umi_dict[umi_id] = {"String_1": dict(), "String_2": dict()}
                 umi_dict[umi_id][strand][qr_nm] = [read]
+
         str1_s_hits = {}
         str2_s_hits = {}
         umi_dict = {k: v for k, v in umi_dict.items() if v}
@@ -187,7 +189,7 @@ def pos_hits(inp_lst, record_pos):
             if read_base != r2b:
                 continue
         elif len(read) == 1:
-            read_base = base_check(read, record_pos)
+            read_base = base_check(read[0], record_pos)
             #todo handle umapped mate
         else:
             raise Exception("No entries exceeds 2, cannot handle the no. reads: {}".format(len(read)))

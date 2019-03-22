@@ -74,21 +74,21 @@ class TestCase(unittest.TestCase):
         self.str1_ffpe_lst = {"PairedFFPERead_AAATTT+CCCGGG": [f1f, r2f]}
         self.str1_muta_lst = {"PairedMutaRead_AAATTT+CCCGGG": [f1m, r2m]}
         self.str1_n_lst = {"PairedUnknRead_AAATTT+CCCGGG": [f1n, r2n]}
-        self.str1_d_lst = {"PairedDelRead_AAATTT+CCCGGG": [f1d, r2d]}
+        self.str1_del_lst = {"PairedDelRead_AAATTT+CCCGGG": [f1d, r2d]}
 
         # Creates fake single string_2 lists
         self.str2_clea_lst = {"PairedCleanRead_CCCGGG+AAATTT": [f2c, r1c]}
         self.str2_ffpe_lst = {"PairedFFPERead_CCCGGG+AAATTT+": [f2f, r1f]}
         self.str2_muta_lst = {"PairedMutaRead_CCCGGG+AAATTT+": [f2m, r1m]}
         self.str2_n_lst = {"PairedNUnknRead_CCCGGG+AAATTT": [f2n, r1n]}
-        self.str2_d_lst = {"PairedDelRead_CCCGGG+AAATTT": [f2d, r1d]}
+        self.str2_del_lst = {"PairedDelRead_CCCGGG+AAATTT": [f2d, r1d]}
 
         # Creates fake non-mate lists
-        self.str1u_clea_lst = [f1c, f2c]
-        self.str1u_ffpe_lst = [f1f, f2f]
-        self.str1u_muta_lst = [f1m, f2m]
-        self.str1u_n_lst = [f1n, f2n]
-        self.str1u_del_lst = [f1d, f2d]
+        self.str1u_clea_lst = [f1c, r2c]
+        self.str1u_ffpe_lst = [f1f, r2f]
+        self.str1u_muta_lst = [f1m, r2m]
+        self.str1u_n_lst = [f1n, r2n]
+        self.str1u_del_lst = [f1d, r2d]
 
         # Creates fake paired hit-dicts
         str1_ch = {"A": 0, "T": 1, "G": 0, "C": 0, "N": 0, "-": 0}
@@ -129,6 +129,17 @@ class TestCase(unittest.TestCase):
         self.m_ffpe_d = {self.umi_key: {"Single_Hits": self.sing_dict, "Mate_Hits": self.m_ffpe}}
         self.n_ffpe_d = {self.umi_key: {"Single_Hits": self.sing_dict, "Mate_Hits": self.n_ffpe}}
         self.d_ffpe_d = {self.umi_key: {"Single_Hits": self.sing_dict, "Mate_Hits": self.d_ffpe}}
+
+        self.str1_ffpe_c_d = {self.umi_key: {"Single_Hits": {'String_1_Single': {
+            'A': 0, 'T': 1, 'G': 0, 'C': 0, 'N': 0, '-': 0}, 'String_2_Single': {}}, 'Mate_Hits': {}}}
+        self.str1_ffpe_f_d = {self.umi_key: {"Single_Hits": {'String_1_Single': {
+            'A': 0, 'T': 0, 'G': 0, 'C': 1, 'N': 0, '-': 0}, 'String_2_Single': {}}, 'Mate_Hits': {}}}
+        self.str1_ffpe_m_d = {self.umi_key: {"Single_Hits": {'String_1_Single': {
+            'A': 0, 'T': 0, 'G': 0, 'C': 1, 'N': 0, '-': 0}, 'String_2_Single': {}}, 'Mate_Hits': {}}}
+        self.str1_ffpe_n_d = {self.umi_key: {"Single_Hits": {'String_1_Single': {
+            'A': 0, 'T': 0, 'G': 0, 'C': 0, 'N': 1, '-': 0}, 'String_2_Single': {}}, 'Mate_Hits': {}}}
+        self.str1_ffpe_d_d = {self.umi_key: {"Single_Hits": {'String_1_Single': {
+            'A': 0, 'T': 0, 'G': 0, 'C': 0, 'N': 0, '-': 1}, 'String_2_Single': {}}, 'Mate_Hits': {}}}
 
     def test_pos_hits_c(self):
         # Test method for the pos-hits function for "clean" data
@@ -173,13 +184,13 @@ class TestCase(unittest.TestCase):
         # Test method for the pos-hits function for a del in the mutated position
 
         # Checks the n-lists for "N" counts
-        self.assertEqual(fumic.pos_hits(self.str1_d_lst, self.rec_pos)[self.del_sym], 1)
-        self.assertEqual(fumic.pos_hits(self.str2_d_lst, self.rec_pos)[self.unk_sym], 0)
+        self.assertEqual(fumic.pos_hits(self.str1_del_lst, self.rec_pos)[self.del_sym], 1)
+        self.assertEqual(fumic.pos_hits(self.str2_del_lst, self.rec_pos)[self.unk_sym], 0)
         # Then checks to see if the others have any counts on the base/ref
-        self.assertEqual(fumic.pos_hits(self.str1_d_lst, self.rec_pos)[self.ref_var], 0)
-        self.assertEqual(fumic.pos_hits(self.str1_d_lst, self.rec_pos)[self.ref_bas], 0)
-        self.assertEqual(fumic.pos_hits(self.str2_d_lst, self.rec_pos)[self.ref_var], 0)
-        self.assertEqual(fumic.pos_hits(self.str2_d_lst, self.rec_pos)[self.ref_bas], 1)
+        self.assertEqual(fumic.pos_hits(self.str1_del_lst, self.rec_pos)[self.ref_var], 0)
+        self.assertEqual(fumic.pos_hits(self.str1_del_lst, self.rec_pos)[self.ref_bas], 0)
+        self.assertEqual(fumic.pos_hits(self.str2_del_lst, self.rec_pos)[self.ref_var], 0)
+        self.assertEqual(fumic.pos_hits(self.str2_del_lst, self.rec_pos)[self.ref_bas], 1)
 
     def test_ffpe_finder_c(self):
         # Test method for the ffpe_finder function
@@ -267,12 +278,25 @@ class TestCase(unittest.TestCase):
     def test_pos_checker_d(self):
         self.assertDictEqual(fumic.pos_checker(self.del_lst, self.rec_pos, self.ref_var, self.ref_bas), self.d_ffpe_d)
 
-    #def test_pos_checker_fs(self):
-     #   sing_dict = {"Forward Single": {}, "Reverse Single": {}}
-     #   fs_c_dict  = {"Single Hits": self.fs_lst, "Variant Hits": {} }
-     #   print(fumic.pos_checker(self.str1u_clea_lst, self.rec_pos, self.ref_var, self.ref_bas))
-     #   self.assertDictEqual(fumic.pos_checker(self.f_clea_lst, self.rec_pos, self.ref_var, self.ref_bas), fs_c_d)
+    def test_pos_checker_sing_c(self):
+        self.assertDictEqual(fumic.pos_checker(self.str1u_clea_lst, self.rec_pos, self.ref_var, self.ref_bas),
+                             self.str1_ffpe_c_d)
 
+    def test_pos_checker_sing_f(self):
+        self.assertDictEqual(fumic.pos_checker(self.str1u_ffpe_lst, self.rec_pos, self.ref_var, self.ref_bas),
+                             self.str1_ffpe_f_d)
+
+    def test_pos_checker_sing_m(self):
+        self.assertDictEqual(fumic.pos_checker(self.str1u_muta_lst, self.rec_pos, self.ref_var, self.ref_bas),
+                             self.str1_ffpe_m_d)
+
+    def test_pos_checker_sing_n(self):
+        self.assertDictEqual(fumic.pos_checker(self.str1u_n_lst, self.rec_pos, self.ref_var, self.ref_bas),
+                             self.str1_ffpe_n_d)
+
+    def test_pos_checker_sing_d(self):
+        self.assertDictEqual(fumic.pos_checker(self.str1u_del_lst, self.rec_pos, self.ref_var, self.ref_bas),
+                             self.str1_ffpe_d_d)
 
 if __name__ == '__main__':
     unittest.main()
