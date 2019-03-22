@@ -102,9 +102,6 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
             qn = read.query_name
             # Splits the name based on "_" character
             qn_spl = qn.split("_")
-            # Extracts the 1- based leftmost mapping POSition
-            # l_pos = read.reference_start
-            # r_pos = read.reference_end
             # Selects the last element of the vector
             umi = qn_spl[-1]
             # Obtains the barcode's based on splitting the vector  using the "+" symbol
@@ -131,40 +128,39 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
                     # Forward direction on the reverse molecule
                     strand = "String_2"
                     umi_id = umi_r + "_" + umi_l
-
             # Adds every read to a list corresponding to its polarity, the lists in turn are part of a dict represented
             # By its unique id-tag created from its leftmost position and UMIs
             try:
                 umi_dict[umi_id][strand][qr_nm].append(read)
             except KeyError:
                 if umi_id not in umi_dict:
-                    umi_dict[umi_id] = {"String_1": {}, "String_2": {}}
+                    umi_dict[umi_id] = {"String_1": dict(), "String_2": dict()}
                 umi_dict[umi_id][strand][qr_nm] = [read]
-        f_s_hits = {}
-        r_s_hits = {}
+        str1_s_hits = {}
+        str2_s_hits = {}
         umi_dict = {k: v for k, v in umi_dict.items() if v}
         counter = 0
         # Iterates through every UMI-key in the dict
         for umi_key in umi_dict.keys():
             # Retrieves the forward and reverse molecule hits from said UMI-key
-            f_lst = umi_dict[umi_key]["String_1"]
-            r_lst = umi_dict[umi_key]["String_2"]
+            str1_lst = umi_dict[umi_key]["String_1"]
+            str2_lst = umi_dict[umi_key]["String_2"]
             # If any of the keys have an empty list entry, separately calculates the pos_hits and stores it
-            if f_lst:
-                if r_lst:
+            if str1_lst:
+                if str2_lst:
                     counter += 1
-                    base_res["String_1_Hits"] = pos_hits(f_lst, record_pos)
-                    base_res["String_2_Hits"] = pos_hits(r_lst, record_pos)
+                    base_res["String_1_Hits"] = pos_hits(str1_lst, record_pos)
+                    base_res["String_2_Hits"] = pos_hits(str2_lst, record_pos)
                     var_dict = ffpe_finder(base_res, ref_var, ref_base)
                 else:
-                    f_s_hits = pos_hits(f_lst, record_pos)
-            elif r_lst:
-                if not f_lst:
-                    r_s_hits = pos_hits(r_lst, record_pos)
-            sing_dict = {"String_1_Single": f_s_hits, "String_2_Single": r_s_hits}
+                    str1_s_hits = pos_hits(str1_lst, record_pos)
+            elif str2_lst:
+                if not str1_lst:
+                    str2_s_hits = pos_hits(str2_lst, record_pos)
+            sing_dict = {"String_1_Single": str1_s_hits, "String_2_Single": str2_s_hits}
             pos_res[umi_key] = {"Single_Hits": sing_dict, "Mate_Hits": var_dict}
-    except KeyError:
-        print("ERROR: The requested key does not exist")
+    except KeyError as e:
+        print("ERROR: The requested key " + str(e) + " does not exist")
     return pos_res
 
 
@@ -179,7 +175,6 @@ def pos_hits(inp_lst, record_pos):
     n_d = 0
 
     base_lst = ["A", "T", "G", "C", "N"]
-
     # Iterates through every query_name entry within the given UMI-key for the direction
     for query_name, read in inp_lst.items():
         read_base = None
@@ -273,7 +268,6 @@ def ffpe_finder(base_res, ref_var, ref_base):
 
 def sup_count(input_dict, nuc):
     n_sup = {"String_1_Single": {}, "String_2_Single": {}, "Paired": {}}
-
     for n in nuc:
         n_sup["String_1_Single"][n] = 0
         n_sup["String_2_Single"][n] = 0
@@ -295,11 +289,11 @@ def sup_count(input_dict, nuc):
                     if input_dict[umi_key]["Mate_Hits"][v_h]:
                         if input_dict[umi_key]["Mate_Hits"][v_h]["String_1"]:
                             if n in input_dict[umi_key]["Mate_Hits"][v_h]["String_1"]:
-                                n_sup["Paired"]["String_1"][n] += input_dict[umi_key]["Variant_Hits"][v_h][
+                                n_sup["Paired"]["String_1"][n] += input_dict[umi_key]["Mate_Hits"][v_h][
                                     "String_1"][n]
-                        if input_dict[umi_key]["Mate_Hits"][v_h]["Reverse Molecule"]:
+                        if input_dict[umi_key]["Mate_Hits"][v_h]["String_2"]:
                             if n in input_dict[umi_key]["Mate_Hits"][v_h]["String_2"]:
-                                n_sup["Paired"]["String_2"][n] += input_dict[umi_key]["Variant_Hits"][v_h][
+                                n_sup["Paired"]["String_2"][n] += input_dict[umi_key]["Mate_Hits"][v_h][
                                         "String_2"][n]
     return n_sup
 
