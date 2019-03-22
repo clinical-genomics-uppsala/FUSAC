@@ -129,7 +129,7 @@ class TestCase(unittest.TestCase):
         self.m_ffpe_d = {self.umi_key: {"Single Hits": self.sing_dict, "Variant Hits": self.m_ffpe}}
 
     def test_pos_hits_c(self):
-        # Test method for the pos-hits function
+        # Test method for the pos-hits function for "clean" data
 
         # Checks the clean list
         self.assertEqual(fumic.pos_hits(self.str1_clea_lst, self.rec_pos)[self.ref_bas], 1)
@@ -138,7 +138,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(fumic.pos_hits(self.str2_clea_lst, self.rec_pos)[self.ref_var], 0)
 
     def test_pos_hits_f(self):
-        # Test method for the pos-hits function
+        # Test method for the pos-hits function for ffpe-artefact data
 
         # Checks the ffpe-lists
         self.assertEqual(fumic.pos_hits(self.str1_ffpe_lst, self.rec_pos)[self.ref_var], 1)
@@ -147,7 +147,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(fumic.pos_hits(self.str2_ffpe_lst, self.rec_pos)[self.ref_bas], 1)
 
     def test_pos_hits_m(self):
-        # Test method for the pos-hits function
+        # Test method for the pos-hits function for SNPs
 
         # Checks the mutation-lists
         self.assertEqual(fumic.pos_hits(self.str1_muta_lst, self.rec_pos)[self.ref_var], 1)
@@ -156,7 +156,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(fumic.pos_hits(self.str2_muta_lst, self.rec_pos)[self.ref_bas], 0)
 
     def test_pos_hits_n(self):
-        # Test method for the pos-hits function
+        # Test method for the pos-hits function for n in the mutated position
 
         # Checks the n-lists for "N" counts
         self.assertEqual(fumic.pos_hits(self.str1_n_lst, self.rec_pos)[self.unk_sym], 1)
@@ -167,50 +167,70 @@ class TestCase(unittest.TestCase):
         self.assertEqual(fumic.pos_hits(self.str2_n_lst, self.rec_pos)[self.ref_var], 0)
         self.assertEqual(fumic.pos_hits(self.str2_n_lst, self.rec_pos)[self.ref_bas], 1)
 
-    # def test_ffpe_finder_c(self):
-    #     # Test method for the ffpe_finder function
-    #
-    #     # First checks the clean list
-    #     self.assertEqual(fumic.ffpe_finder(self.c_base_res, self.ref_var, self.ref_bas)["Reference_Hits"][
-    #             "String_1"][self.ref_bas], 1)
-    #     self.assertEqual(fumic.ffpe_finder(self.c_base_res, self.ref_var, self.ref_bas)["Reference_Hits"][
-    #             "String_2"][self.ref_bas], 1)
-    #
-    # def test_ffpe_finder_f(self):
-    #     # Test method for the ffpe_finder function
-    #
-    #     # Then checks the ffpe-list
-    #     self.assertEqual(fumic.ffpe_finder(self.f_base_res, self.ref_var, self.ref_bas)["FFPE_Hits"][
-    #                          "String_1"][self.ref_var], 1)
-    #     self.assertEqual(fumic.ffpe_finder(self.f_base_res, self.ref_var, self.ref_bas)["FFPE_Hits"][
-    #                          "String_2"][self.ref_bas], 1)
-    #
-    # def test_ffpe_finder_m(self):
-    #     # Test method for the ffpe_finder function
-    #
-    #     # Then checks the mut-list
-    #     self.assertEqual(fumic.ffpe_finder(self.m_base_res, self.ref_var, self.ref_bas)["Mutation_Hits"][
-    #                          "String_1"][self.ref_var], 1)
-    #     self.assertEqual(fumic.ffpe_finder(self.m_base_res, self.ref_var, self.ref_bas)["Mutation_Hits"][
-    #                          "String_2"][self.ref_var], 1)
-    #
-    # def test_ffpe_finder_n(self):
-    #     # Test method for the ffpe_finder function
-    #
-    #     # Then checks the mut-list
-    #     self.assertEqual(fumic.ffpe_finder(self.n_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
-    #                          "String_1"]["N"], 1)
-    #     self.assertEqual(fumic.ffpe_finder(self.n_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
-    #                          "String_2"]["N"], 1)
-    #
-    # def test_ffpe_finder_d(self):
-    #     # Test method for the ffpe_finder function
-    #
-    #     # Then checks the mut-list
-    #     self.assertEqual(fumic.ffpe_finder(self.d_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
-    #                          "String_1"]["-"], 1)
-    #     self.assertEqual(fumic.ffpe_finder(self.d_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
-    #                          "String_2"]["-"], 1)
+    def test_pos_hits_d(self):
+        # Test method for the pos-hits function for a del in the mutated position
+
+        # Checks the n-lists for "N" counts
+        self.assertEqual(fumic.pos_hits(self.str1_d_lst, self.rec_pos)[self.del_sym], 1)
+        self.assertEqual(fumic.pos_hits(self.str2_d_lst, self.rec_pos)[self.unk_sym], 0)
+        # Then checks to see if the others have any counts on the base/ref
+        self.assertEqual(fumic.pos_hits(self.str1_d_lst, self.rec_pos)[self.ref_var], 0)
+        self.assertEqual(fumic.pos_hits(self.str1_d_lst, self.rec_pos)[self.ref_bas], 0)
+        self.assertEqual(fumic.pos_hits(self.str2_d_lst, self.rec_pos)[self.ref_var], 0)
+        self.assertEqual(fumic.pos_hits(self.str2_d_lst, self.rec_pos)[self.ref_bas], 1)
+
+    def test_ffpe_finder_c(self):
+        # Test method for the ffpe_finder function
+        # First checks the clean list
+        self.assertEqual(fumic.ffpe_finder(self.c_base_res, self.ref_var, self.ref_bas)["Reference_Hits"][
+                "String_1"][self.ref_bas], 1)
+        self.assertEqual(fumic.ffpe_finder(self.c_base_res, self.ref_var, self.ref_bas)["Reference_Hits"][
+                "String_2"][self.ref_bas], 1)
+
+    def test_ffpe_finder_f(self):
+        # Test method for the ffpe_finder function
+        # Then checks the ffpe-list
+        self.assertEqual(fumic.ffpe_finder(self.f_base_res, self.ref_var, self.ref_bas)["FFPE_Hits"][
+                             "String_1"][self.ref_var], 1)
+        self.assertEqual(fumic.ffpe_finder(self.f_base_res, self.ref_var, self.ref_bas)["FFPE_Hits"][
+                             "String_2"][self.ref_bas], 1)
+
+    def test_ffpe_finder_m(self):
+        # Test method for the ffpe_finder function, for the mut-list
+        self.assertEqual(fumic.ffpe_finder(self.m_base_res, self.ref_var, self.ref_bas)["Mutation_Hits"][
+                             "String_1"][self.ref_var], 1)
+        self.assertEqual(fumic.ffpe_finder(self.m_base_res, self.ref_var, self.ref_bas)["Mutation_Hits"][
+                             "String_2"][self.ref_var], 1)
+
+    def test_ffpe_finder_n(self):
+        # Test method for the ffpe_finder function, for the n-list
+        self.assertEqual(fumic.ffpe_finder(self.n_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
+                             "String_1"][self.unk_sym], 1)
+        self.assertEqual(fumic.ffpe_finder(self.n_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
+                             "String_2"][self.unk_sym], 0)
+        self.assertEqual(fumic.ffpe_finder(self.n_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
+                             "String_1"][self.ref_var], 0)
+        self.assertEqual(fumic.ffpe_finder(self.n_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
+                             "String_1"][self.ref_bas], 0)
+        self.assertEqual(fumic.ffpe_finder(self.n_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
+                             "String_2"][self.ref_bas], 1)
+        self.assertEqual(fumic.ffpe_finder(self.n_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
+                             "String_2"][self.ref_var], 0)
+
+    def test_ffpe_finder_d(self):
+        # Test method for the ffpe_finder function, for the n-list
+        self.assertEqual(fumic.ffpe_finder(self.d_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
+                             "String_1"][self.del_sym], 1)
+        self.assertEqual(fumic.ffpe_finder(self.d_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
+                             "String_2"][self.del_sym], 0)
+        self.assertEqual(fumic.ffpe_finder(self.d_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
+                             "String_1"][self.ref_var], 0)
+        self.assertEqual(fumic.ffpe_finder(self.d_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
+                             "String_1"][self.ref_bas], 0)
+        self.assertEqual(fumic.ffpe_finder(self.d_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
+                             "String_2"][self.ref_bas], 1)
+        self.assertEqual(fumic.ffpe_finder(self.d_base_res, self.ref_var, self.ref_bas)["Outlier_Hits"][
+                             "String_2"][self.ref_var], 0)
     #
     # def test_sup_count_c(self):
     #     self.assertEqual(fumic.sup_count(self.c_ffpe_d, self.ref_bas)["Paired"]["String_1"][self.ref_bas], 2)
