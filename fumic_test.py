@@ -3,7 +3,7 @@
 
 # Import modules
 import unittest
-import project_files.fumic as fumic
+import fumic
 
 
 class ReadCheck:
