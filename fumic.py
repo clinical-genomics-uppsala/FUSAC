@@ -1,4 +1,3 @@
-# First attempt to read in BAM as SAM
 # !/usr/bin/env python3
 
 # FUMIC - FFPE-artefact UMI-based Mapper for Imputation in Cancer-sample tissue data
@@ -7,6 +6,7 @@
 
 # Imports modules
 import pysam
+import time
 
 
 def vcf_extract(vcf_file, bam_file):
@@ -22,15 +22,18 @@ def vcf_extract(vcf_file, bam_file):
 
     vcf_head = vcf_file.header
     vcf_head.filters.add('FFPE', None, None, 'FFPE Artefact')
-    vcf_head.formats.add("UMI", ".", "String", "UMI information for reference,variant Paired:SForward:SReverse")
-    n_vcf = pysam.VariantFile("output_vcf.vcf", mode='w', header=vcf_head)
+    vcf_head.formats.add("UMI", ".", "String", "UMI information for variant then reference "
+                                               "Paired;Unmapped Forward;Unmapped Reverse")
+    n_vcf = pysam.VariantFile("fumic_output.vcf", mode='w', header=vcf_head)
 
     # Initialize null lists
     # Retrieve the position from every record in the VCF file
     for record in vcf_file.fetch():
         bam_lst = []
-        var_sd = []
-        ref_sd = []
+        var_sd_p = []
+        var_sd_s = []
+        ref_sd_p = []
+        ref_sd_s = []
         # Copies the record information
         n_cop = record.copy()
         n_pos = record.pos
@@ -40,11 +43,9 @@ def vcf_extract(vcf_file, bam_file):
         n_ref = record.ref
         n_ref = ''.join(n_ref)
         list(n_ref)
-        n_ref = set(n_ref)
         n_alt = record.alts
         n_alt = ''.join(n_alt)
         list(n_alt)
-        n_alt = set(n_alt)
 
         # Checks so that the length of the list is not greater then 1 (temporary solution for handling SNVs only)
         if len(n_ref) > 1 or len(n_alt) > 1:
@@ -59,21 +60,28 @@ def vcf_extract(vcf_file, bam_file):
             bam_lst.append(read)
 
         # Calls the pos_checker function to obtain ffpe_data
-        ffpe_data = (pos_checker(bam_lst, record_pos, n_alt, n_ref))
+        ffpe_data = pos_checker(bam_lst, record_pos, n_alt, n_ref)
 
         # Calls the sup_count function to obtain the support for each nucleotide called
         ref_sup = sup_count(ffpe_data, n_ref)
         alt_sup = sup_count(ffpe_data, n_alt)
-        pos_sup = {"Variant": alt_sup, "Reference": ref_sup}
+        type_sup = mol_count(ffpe_data)
+
+        # pos_sup = {"Variant": alt_sup, "Reference": ref_sup}
 
         for var in n_alt:
-            var_sd = str(pos_sup["Paired"]["String_1"][var]) + ":" + str(pos_sup["Paired"]["String_2"][var]) + \
-                     ":" + str(pos_sup["String_1_Single"][var]) + ":" + str(pos_sup["String_2_Single"][var])
+            var_sd_p = str(alt_sup["Paired"]["String_1"][var]) + ";" + str(alt_sup["Paired"]["String_2"][var])
+            var_sd_s = str(alt_sup["String_1_Single"][var]) + ";" + str(alt_sup["String_2_Single"][var])
+
         for ref in n_ref:
-            ref_sd = str(pos_sup["Paired"]["String_1"][ref]) + ":" + str(pos_sup["Paired"]["String_2"][ref]) + \
-                     ":" + str(pos_sup["String_1_Single"][ref]) + ":" + str(pos_sup["String_2_Single"][ref])
+            ref_sd_p = str(ref_sup["Paired"]["String_1"][ref]) + ";" + str(ref_sup["Paired"]["String_2"][ref])
+            ref_sd_s = str(ref_sup["String_1_Single"][ref]) + ";" + str(ref_sup["String_2_Single"][ref])
+
         for sample in n_cop.samples:
-            n_cop.samples[sample]['UMI'] = var_sd + ref_sd
+            n_cop.samples[sample]['UMI'] = str(type_sup[0]) + ";" + str(type_sup[1]) + ";" + str(type_sup[2]) + ";" +\
+                                           str(type_sup[3]) + ";" + str(type_sup[4]) + ";" + ref_sd_p + ";" + var_sd_p \
+                                           + ";" + ref_sd_s + ";" + var_sd_s
+
         # umi_lst = []
         # for ref in pos_sup["Reference"]:
         #     ref_c = pos_sup["Variant"][ref]
@@ -93,8 +101,8 @@ def vcf_extract(vcf_file, bam_file):
 
 def pos_checker(bam_lst, record_pos, ref_var, ref_base):
     umi_dict = {}
-    base_res = {}
     var_dict = {}
+    bas_dict = {}
     pos_res = {}
     try:
         for read in bam_lst:
@@ -141,7 +149,6 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
         str1_s_hits = {}
         str2_s_hits = {}
         umi_dict = {k: v for k, v in umi_dict.items() if v}
-        counter = 0
         # Iterates through every UMI-key in the dict
         for umi_key in umi_dict.keys():
             # Retrieves the forward and reverse molecule hits from said UMI-key
@@ -150,10 +157,9 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
             # If any of the keys have an empty list entry, separately calculates the pos_hits and stores it
             if str1_lst:
                 if str2_lst:
-                    counter += 1
-                    base_res["String_1_Hits"] = pos_hits(str1_lst, record_pos)
-                    base_res["String_2_Hits"] = pos_hits(str2_lst, record_pos)
-                    var_dict = ffpe_finder(base_res, ref_var, ref_base)
+                    bas_dict["String_1_Hits"] = pos_hits(str1_lst, record_pos)
+                    bas_dict["String_2_Hits"] = pos_hits(str2_lst, record_pos)
+                    var_dict = ffpe_finder(bas_dict, ref_var, ref_base)
                 else:
                     str1_s_hits = pos_hits(str1_lst, record_pos)
             elif str2_lst:
@@ -189,10 +195,11 @@ def pos_hits(inp_lst, record_pos):
             if read_base != r2b:
                 continue
         elif len(read) == 1:
-            read_base = base_check(read[0], record_pos)
+            # read_base = base_check(read[0], record_pos)
+                continue
             #todo handle umapped mate
         else:
-            raise Exception("No entries exceeds 2, cannot handle the no. reads: {}".format(len(read)))
+            raise Exception("No. entries exceeds 2, cannot handle the no. reads: {}".format(len(read)))
 
         # Checks the read_base and adds a count if it matches against any of the entries in the base_lst, if so adds
         # To a counter
@@ -211,7 +218,9 @@ def pos_hits(inp_lst, record_pos):
 
     # Returns a dict with the counts for each base respectively
     pos_dict = {"A": n_a, "T": n_t, "G": n_g, "C": n_c, "N": n_n, "-": n_d}
-    return pos_dict
+    # Selects the most common out of these bases
+    umi_bas = max(pos_dict, key=pos_dict.get)
+    return umi_bas
 
 
 def base_check(read, record_pos):
@@ -233,49 +242,78 @@ def base_check(read, record_pos):
 
 
 def ffpe_finder(base_res, ref_var, ref_base):
+    n_sym = "N"
+    del_sym = "-"
     ffpe_dict = {}
+    ffpe_ind = 0
     mut_dict = {}
+    mut_ind = 0
     ref_dict = {}
-    out_dict = {}
+    ref_ind = 0
+    n_ind = 0
+    n_dict = {}
+    del_ind = 0
+    del_dict = {}
+
     try:
         # Retrieves the forward and reverse base hits for the key value
         f_hits = base_res["String_1_Hits"]
         r_hits = base_res["String_2_Hits"]
         # Iterates through each variant called by the program
-        for var_call in ref_var:
-            for r_base in ref_base:
-                # First checks if the variant is present in both forward and reverse molecule, if so it is deemed a
-                # Mutation
-                if f_hits[var_call] > 0 and r_hits[var_call] > 0:
-                    mut_dict = {"String_1": f_hits, "String_2": r_hits}
-                # If the variant is present in only on of the strings, it is deemed a FFPE
-                elif f_hits[var_call] > 0 and r_hits[var_call] == 0:
-                    ffpe_dict = {"String_1": f_hits, "String_2": r_hits}
-                elif f_hits[var_call] == 0 and r_hits[var_call] > 0:
-                    ffpe_dict = {"String_1": f_hits, "String_2": r_hits}
-                # If both positions are deemed to be the reference, it is added as a reference to the dict
-                elif f_hits[r_base] > 0 and r_hits[r_base] > 0:
-                    ref_dict = {"String_1": f_hits, "String_2": r_hits}
-                # If none of the above statements are fulfilled, then it is deemed as another form of mutation
-                else:
-                    out_dict = {"String_1": f_hits, "String_2": r_hits}
+        # First checks if the variant is present in both forward and reverse molecule, if so it is a Mutation
+        if f_hits != n_sym and f_hits != del_sym and r_hits != n_sym and r_hits != del_sym and f_hits != r_hits:
+            ffpe_dict = {"String_1": f_hits, "String_2": r_hits}
+            ffpe_ind += 1
+        # If both positions are deemed to be the reference, it is added to the ref_dict
+        elif f_hits == r_hits and f_hits == ref_base:
+            ref_dict = {"String_1": f_hits, "String_2": r_hits}
+            ref_ind += 1
+        # If both positions contains the variant, it is added to the mut_dict
+        elif f_hits == r_hits and f_hits == ref_var:
+            mut_dict = {"String_1": f_hits, "String_2": r_hits}
+            mut_ind += 1
+        elif f_hits == n_sym or r_hits == n_sym:
+            n_dict = {"String_1": f_hits, "String_2": r_hits}
+            n_ind += 1
+        elif f_hits == del_sym or r_hits == del_sym:
+            del_dict = {"String_1": f_hits, "String_2": r_hits}
+            del_ind += 1
     except KeyError as e:
         print("No match for: " + str(e) + " found, comparison not possible")
         # Returns both dictionaries in a list
-    var_dict = {"FFPE_Hits": ffpe_dict, "Mutation_Hits": mut_dict, "Reference_Hits": ref_dict,
-                "Outlier_Hits": out_dict}
-    # print(var_lst)
+    var_dict = {"Reference_Hits": ref_dict, "Mutation_Hits": mut_dict, "FFPE_Hits": ffpe_dict,
+                "N_Hits": n_dict, "Del_Hits": del_dict, "Reference_Support": ref_ind, "Mutation_Support": mut_ind,
+                "FFPE_Support": ffpe_ind, "N_Support": n_ind, "Del_Support": del_ind}
     return var_dict
 
 
+def mol_count(input_dict):
+    ref_sup = 0
+    mut_sup = 0
+    ffpe_sup = 0
+    n_sup = 0
+    del_sup = 0
+    for umi_key in input_dict:
+        try:
+            ref_sup += input_dict[umi_key]["Mate_Hits"]["Reference_Support"]
+            mut_sup += input_dict[umi_key]["Mate_Hits"]["Mutation_Support"]
+            ffpe_sup += input_dict[umi_key]["Mate_Hits"]["FFPE_Support"]
+            n_sup += input_dict[umi_key]["Mate_Hits"]["N_Support"]
+            del_sup += input_dict[umi_key]["Mate_Hits"]["Del_Support"]
+        except KeyError as e:
+            print("The resquested key: " + str(e) + " does not exist")
+            continue
+    return [ref_sup, mut_sup, ffpe_sup, n_sup, del_sup]
+
+
 def sup_count(input_dict, nuc):
-    n_sup = {"String_1_Single": {}, "String_2_Single": {}, "Paired": {}}
+    n_sup = {"Paired": {}, "String_1_Single": {}, "String_2_Single": {}}
     for n in nuc:
-        n_sup["String_1_Single"][n] = 0
-        n_sup["String_2_Single"][n] = 0
         n_sup["Paired"] = {"String_1": {}, "String_2": {}}
         n_sup["Paired"]["String_1"][n] = 0
         n_sup["Paired"]["String_2"][n] = 0
+        n_sup["String_1_Single"][n] = 0
+        n_sup["String_2_Single"][n] = 0
         for umi_key in input_dict:
             # Iterates through each alternative allele called by the variant caller
             # Counts the no. molecules supporting the variant for each direction in the single hits
@@ -283,30 +321,31 @@ def sup_count(input_dict, nuc):
                 for sh_dir in input_dict[umi_key]["Single_Hits"]:
                     if input_dict[umi_key]["Single_Hits"][sh_dir]:
                         if n in input_dict[umi_key]["Single_Hits"][sh_dir]:
-                            n_sup[sh_dir][n] += input_dict[umi_key]["Single_Hits"][sh_dir][n]
+                            n_sup[sh_dir][n] += 1
             # Sees if the dict "Mate Hits" is empty, if not, counts the no molecules supporting the variant for each
             # dict within the "Mate Hits" dictionary
             if input_dict[umi_key]["Mate_Hits"]:
-                for v_h in input_dict[umi_key]["Mate_Hits"]:
-                    if input_dict[umi_key]["Mate_Hits"][v_h]:
-                        if input_dict[umi_key]["Mate_Hits"][v_h]["String_1"]:
-                            if n in input_dict[umi_key]["Mate_Hits"][v_h]["String_1"]:
-                                n_sup["Paired"]["String_1"][n] += input_dict[umi_key]["Mate_Hits"][v_h][
-                                    "String_1"][n]
-                        if input_dict[umi_key]["Mate_Hits"][v_h]["String_2"]:
-                            if n in input_dict[umi_key]["Mate_Hits"][v_h]["String_2"]:
-                                n_sup["Paired"]["String_2"][n] += input_dict[umi_key]["Mate_Hits"][v_h][
-                                        "String_2"][n]
+                new_lst = list(input_dict[umi_key]["Mate_Hits"].items())
+                new_dict = dict(new_lst[0:-7])
+                for v_h in new_dict:
+                    if new_dict[v_h]:
+                        for s_t in new_dict[v_h]:
+                            if new_dict[v_h][s_t]:
+                                if n in new_dict[v_h][s_t]:
+                                    n_sup["Paired"][s_t][n] += 1
     return n_sup
 
 
 def main():
+    t_start = time.time()
     # Reads in the bam file
     bam_file = pysam.AlignmentFile("26-sort.REF_chr8.bam", "r")
     vcf_file = pysam.VariantFile("26-ensembl.chr8.vcf", "r")
     # Extracts all reads present in the bam file which have their regions matching to that of a variant call in the VCF
     vcf_extract(vcf_file, bam_file)
     bam_file.close()
+    t_end = time.time()
+    print("Total runtime: " + str(t_end - t_start) + "s")
 
 
 if __name__ == "__main__":
