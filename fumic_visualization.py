@@ -11,6 +11,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
+import os
+import shutil
 
 
 def vcf_count(vcf_file):
@@ -51,35 +53,40 @@ def vcf_count(vcf_file):
                 ind += 1
         except KeyError as e:
             print("ERROR: The requested filter tag " + str(e) + " does not exist")
-    fig, sub_plt = plt.subplots()
-    x_ind = np.arange(len(var_lst))
-    bar_width = 0.3
-    sub_plt.bar(x_ind - bar_width / 2, var_lst, width=0.3, color='b', align='center', label="Var")
-    sub_plt.bar(x_ind + bar_width/2, ffpe_lst, width=0.3, color='r', align='center', label="FFPE")
-    sub_plt.set_xlabel('Called Var')
-    sub_plt.set_ylabel('Counts')
-    sub_plt.set_xticks(x_ind)
-    sub_plt.legend()
-    fig.savefig("performance_plot.png")
-    plt.close()
 
+    x_ind = np.arange(len(var_lst))
     sns.set(style="ticks", color_codes=True)
+    if os.path.isdir("Fumic_Stats"):
+        shutil.rmtree('Fumic_Stats')
+        os.makedirs('Fumic_Stats')
+    else:
+        os.makedirs('Fumic_Stats')
+
+    # Bar plot of read depth for each variant
+    var_type_lst = ['Var'] * len(var_lst)
+    ffpe_type_lst = ['FFPE'] * len(var_lst)
+    type_lst = var_type_lst + ffpe_type_lst
+    depth_lst = var_lst + ffpe_lst
+    pos2_lst = pos_lst + pos_lst
+    bar_df1 = pd.DataFrame({'Variant': pos2_lst, 'Depth': depth_lst, 'Type': type_lst})
+    sns_bar = sns.barplot(x='Variant', y='Depth', hue='Type', data=bar_df1)
+    for ax in sns_bar.get_xticklabels():
+        ax.set_fontsize(4)
+        ax.set_rotation(90)
+    plt.savefig("Fumic_Stats/sns_bar.pdf", format='pdf', dpi=1000)
+
     # Percentage line-plot of hte read-depth
     perc_df = pd.DataFrame({'Variant': x_ind, 'FFPE': perc_lst})
     perc_plot = sns.lineplot(x='Variant', y='FFPE', data=perc_df)
     perc_plot.set(xlabel='Variant', ylabel='FFPE/Depth', title="Percentage plot of FFPE vs. Depth")
-    perc_plot.figure.savefig("percentage_plot.pdf", format='pdf', dpi=1000)
+    perc_plot.figure.savefig("Fumic_Stats/percentage_plot.pdf", format='pdf', dpi=1000)
     plt.close()
 
     # Scatter plot of read depth for each variant
-    var_type_lst = ['Var']*len(var_lst)
-    ffpe_type_lst = ['FFPE']*len(var_lst)
-    type_lst = var_type_lst + ffpe_type_lst
-    depth_lst = var_lst + ffpe_lst
-    pos2_lst = list(range(1, len(pos_lst)+1)) + list(range(1, len(pos_lst)+1))
-    sca1_df1 = pd.DataFrame({'Variant': pos2_lst, 'Depth': depth_lst, 'Type': type_lst})
+    pos3_lst = list(range(1, len(pos_lst)+1)) + list(range(1, len(pos_lst)+1))
+    sca1_df1 = pd.DataFrame({'Variant': pos3_lst, 'Depth': depth_lst, 'Type': type_lst})
     sns.scatterplot(x='Variant', y='Depth', hue='Type', data=sca1_df1)
-    plt.savefig("sns_scatter_1.pdf", format='pdf', dpi=1000)
+    plt.savefig("Fumic_Stats/sns_scatter_1.pdf", format='pdf', dpi=1000)
 
     # VS. Scatter plot of read depth for each variant
     sca2_df = pd.DataFrame({'Var_Depth': var_lst, 'FFPE_Depth': ffpe_lst, 'Variant': pos_lst})
@@ -92,7 +99,7 @@ def vcf_count(vcf_file):
     plt.setp(sns_leg.get_texts(), fontsize=8)
     for lh in sns_leg.legendHandles:
         lh._sizes = [5]
-    sca_sns_plot_2.savefig("sns_scatter_2.pdf", format='pdf', dpi=1000)
+    sca_sns_plot_2.savefig("Fumic_Stats/sns_scatter_2.pdf", format='pdf', dpi=1000)
 
     # VS. Scatter plot of read depth for each variant
     sca3_df = pd.DataFrame({'Var_Depth': var_lst, 'FFPE_Depth': ffpe_lst, 'Base_Change': change_lst})
@@ -105,14 +112,13 @@ def vcf_count(vcf_file):
     plt.setp(sns_leg_2.get_texts(), fontsize=8)
     for lh in sns_leg_2.legendHandles:
         lh._sizes = [5]
-    sca_sns_plot_3.savefig("sns_scatter_3.pdf", format='pdf', dpi=1000)
+    sca_sns_plot_3.savefig("Fumic_Stats/sns_scatter_3.pdf", format='pdf', dpi=1000)
 
-
-        # out_file = open("fumic_count.txt", "w")
-        # out_file.write("Total number of reads: " + str(ind) + "\n")
-        # out_file.write("Total number of FFPE-artefacts found; " + str(ffpe_ind) + "\n")
-        # out_file.write("Fraction of FFPE-artefacts in sample: " + str(ffpe_ind/ind) + "\n")
-        # out_file.close()
+    out_file = open("Fumic_Stats/fumic_count.txt", "w")
+    out_file.write("Total number of reads: " + str(ind) + "\n")
+    out_file.write("Total number of FFPE-artefacts found; " + str(ffpe_ind) + "\n")
+    out_file.write("Fraction of FFPE-artefacts in sample: " + str(ffpe_ind/ind) + "\n")
+    out_file.close()
 
 
 def main():
