@@ -32,10 +32,6 @@ def vcf_extract(record, bam_file):
     # The position that is returned to Python is 0 - based, NOT 1 - based as in the VCF file.
     n_pos = (n_pos - 1)
 
-    # Removes reference bases also present in the variant call
-    # for alt in n_alt:
-    #     n_ref = [r_base for r_base in n_ref if r_base != alt]
-
     # Use the record position to fetch all reads matching it, then append to the list
     for read in bam_file.fetch('chr8', n_pos, n_pos+1):
         bam_lst.append(read)
