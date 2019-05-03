@@ -29,11 +29,12 @@ def vcf_extract(record, bam_file):
     # Copies the record information
     n_cop = record.copy()
     n_pos = record.pos
+    rec_chr = str(record.chrom)
     # The position that is returned to Python is 0 - based, NOT 1 - based as in the VCF file.
     n_pos = (n_pos - 1)
 
     # Use the record position to fetch all reads matching it, then append to the list
-    for read in bam_file.fetch('chr8', n_pos, n_pos+1):
+    for read in bam_file.fetch(rec_chr, n_pos, n_pos+1):
         bam_lst.append(read)
 
     # Calls the pos_checker function to obtain ffpe_data
@@ -51,13 +52,6 @@ def vcf_extract(record, bam_file):
                                         str(unmpd_inf[0][2]) + ";" + str(unmpd_inf[0][3]) + ";" + \
                                         str(unmpd_inf[0][4]) + ";" + unmpd_inf[1] + ";" + unmpd_inf[2] \
                                         + ";" + unmpd_inf[3] + ";" + unmpd_inf[4]
-
-        # umi_lst = []
-        # for ref in pos_sup["Reference"]:
-        #     ref_c = pos_sup["Variant"][ref]
-        #     umi_lst.append(ref_c + ":")
-        # for var in pos_sup["Variant"]:
-        #     umi_lst.append(pos_sup["Variant"][var])
 
         # Checks if any record in the returned dict indicates an FFPE, if so updates the n_fil parameter
     for umi_key in mpd_data:

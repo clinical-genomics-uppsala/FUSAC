@@ -1,4 +1,5 @@
 import base_function
+from collections import Counter
 
 
 def pos_checker(bam_lst, record_pos, ref_var, ref_base):
@@ -89,10 +90,10 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
 def pos_hits(inp_lst, record_pos):
     # Loops through each key and its respective reads to extract their variant position data and then counts
     # The no. hits for each respective letter for this position
-    mpd_bas = None
-    unmpd_bas = None
     uread_base = None
     read_base = None
+    mpd_dict = Counter({"A": 0, "T": 0, "G": 0, "C": 0, "N": 0, "-": 0})
+    unmpd_dict = Counter({"A": 0, "T": 0, "G": 0, "C": 0, "N": 0, "-": 0})
 
     # Iterates through every query_name entry within the given UMI-key for the direction
     for query_name, read in inp_lst.items():
@@ -114,13 +115,16 @@ def pos_hits(inp_lst, record_pos):
                 read_base = base_function.base_check(read[0], record_pos)
         else:
             raise Exception("No. entries exceeds 2, cannot handle the no. reads: {}".format(len(read)))
+        if read_base:
+            tmp_m_dict = Counter(base_function.base_count(read_base))
+            mpd_dict = mpd_dict + tmp_m_dict
+            mpd_dict.update(base_function.base_count(read_base))
+        if uread_base:
+            tmp_u_dict = Counter(base_function.base_count(uread_base))
+            unmpd_dict = unmpd_dict + tmp_u_dict
     # Selects the most prominent base in the unmapped/mapped dict
-    if read_base:
-        mpd_dict = base_function.base_count(read_base)
-        mpd_bas = max(mpd_dict, key=mpd_dict.get)
-    if uread_base:
-        unmpd_dict = base_function.base_count(uread_base)
-        unmpd_bas = max(unmpd_dict, key=unmpd_dict.get)
+    mpd_bas = max(mpd_dict, key=mpd_dict.get)
+    unmpd_bas = max(unmpd_dict, key=unmpd_dict.get)
     # Returns a list of the mapped and unmapped most prominent base
     bas_lst = [mpd_bas, unmpd_bas]
     return bas_lst

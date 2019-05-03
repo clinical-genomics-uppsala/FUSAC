@@ -47,11 +47,8 @@ def ffpe_finder(base_res, ref_var, ref_base):
         r_hits = base_res["String_2_Hits"]
         # Iterates through each variant called by the program
         # First checks if the variant is present in both forward and reverse molecule, if so it is a Mutation
-        if f_hits != n_sym and f_hits != del_sym and r_hits != n_sym and r_hits != del_sym and f_hits != r_hits:
-            ffpe_dict = {"String_1": f_hits, "String_2": r_hits}
-            ffpe_ind += 1
         # If both positions are deemed to be the reference, it is added to the ref_dict
-        elif f_hits == r_hits and f_hits == ref_base:
+        if f_hits == r_hits and f_hits == ref_base:
             ref_dict = {"String_1": f_hits, "String_2": r_hits}
             ref_ind += 1
         # If both positions contains the variant, it is added to the mut_dict
@@ -65,6 +62,9 @@ def ffpe_finder(base_res, ref_var, ref_base):
         elif f_hits == del_sym or r_hits == del_sym:
             del_dict = {"String_1": f_hits, "String_2": r_hits}
             del_ind += 1
+        elif f_hits != n_sym and f_hits != del_sym and r_hits != n_sym and r_hits != del_sym and f_hits != r_hits:
+            ffpe_dict = {"String_1": f_hits, "String_2": r_hits}
+            ffpe_ind += 1
     except KeyError as e:
         print("No match for: " + str(e) + " found, comparison not possible")
     # Returns all dictionaries in a list along with their total counts
