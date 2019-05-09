@@ -7,9 +7,7 @@
 
 # Imports modules
 import pysam
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
+import time
 import pandas as pd
 import os
 import shutil
@@ -19,6 +17,7 @@ def vcf_count(vcf_file):
     ffpe_ind = 0
     ind = 0
     var_lst = []
+    ref_lst = []
     ffpe_lst = []
     perc_lst = []
     pos_lst = []
@@ -28,30 +27,37 @@ def vcf_count(vcf_file):
             r_f = record.filter
             for f_val in r_f:
                 if f_val == "FFPE":
-                    # ref, mut, ffpe, n, del, ref_paired, var_paired, ref_single, var_single]
-                    ffpe_ind += 1
-                    rec_samp = record.samples
-                    pos_lst.append(str(record.pos))
-                    change_lst.append(str(record.ref) + ">" + str(list(record.alts)[0]))
-                    for sample in rec_samp:
-                        samp_dat = list(record.samples[sample]['UMI'])
-                        rec_str = samp_dat[0]
-                        rec_splt = rec_str.split(';')
+                    if str(record.ref) == 'G' and str(list(record.alts)[0]) == 'A' or \
+                            str(record.ref) == 'C' and str(list(record.alts)[0]) == 'T':
+                        # ref, mut, ffpe, n, del, ref_paired, var_paired, ref_single, var_single]
+                        ffpe_ind += 1
+                        rec_samp = record.samples
+                        pos_lst.append(str(record.pos))
+                        change_lst.append(str(record.ref) + ">" + str(list(record.alts)[0]))
+                        for sample in rec_samp:
+                            samp_dat = list(rec_samp[sample]['UMI'])
+                            rec_str = samp_dat[0]
+                            rec_splt = rec_str.split(';')
 
-                        rec_var = int(rec_splt[1])
-                        rec_ffpe = int(rec_splt[2])
-                        rec_ref = int(rec_splt[0])
-                        rec_n = int(rec_splt[3])
-                        rec_del = int(rec_splt[4])
-                        var_lst.append(rec_var)
-                        ffpe_lst.append(rec_ffpe)
-                        if rec_var == 0:
-                            perc_rat = 0
-                        else:
-                            perc_rat = (rec_ffpe/(rec_ref + rec_var + rec_ffpe + rec_n + rec_del)) * 100
-                        perc_lst.append(perc_rat)
-            else:
-                ind += 1
+                            rec_var = int(rec_splt[1])
+                            rec_ffpe = int(rec_splt[2])
+                            rec_ref = int(rec_splt[0])
+                            rec_n = int(rec_splt[3])
+                            rec_del = int(rec_splt[4])
+
+                            var_lst.append(rec_var)
+                            ffpe_lst.append(rec_ffpe)
+                            ref_lst.append(rec_ref)
+
+                            if rec_var == 0:
+                                perc_rat = 0
+                            else:
+                                perc_rat = (rec_ffpe/(rec_ref + rec_var + rec_ffpe + rec_n + rec_del)) * 100
+                            perc_lst.append(perc_rat)
+                    else:
+                        ind += 1
+                else:
+                    ind += 1
         except KeyError as e:
             print("ERROR: The requested filter tag " + str(e) + " does not exist")
 
@@ -67,7 +73,7 @@ def vcf_count(vcf_file):
     out_file.write("Total number of FFPE-artefacts found; " + str(ffpe_ind) + "\n")
     out_file.write("Fraction of FFPE-artefacts in sample: " + str(ffpe_ind / ind) + "\n")
     # Prints out the most important statistics to a .csv file to be used with R
-    pd.DataFrame({'Var': var_lst, 'FFPE': ffpe_lst, 'Perc': perc_lst, 'BaseChange': change_lst}).to_csv("Fumic_Stats/fumic_stats.csv")
+    pd.DataFrame({'Ref': ref_lst, 'Var': var_lst, 'FFPE': ffpe_lst, 'Perc': perc_lst, 'BaseChange': change_lst}).to_csv("Fumic_Stats/fumic_stats.csv")
 
     # sns.set(style="ticks", color_codes=True)
     # x_ind = np.arange(len(var_lst))
@@ -134,10 +140,13 @@ def vcf_count(vcf_file):
 
 
 def main():
+    t_start = time.time()
     # Reads in the bam file
     vcf_file = pysam.VariantFile("fumic_output.vcf", "r")
     vcf_count(vcf_file)
 
+    t_end = time.time()
+    print("Total runtime: " + str(t_end - t_start) + "s")
 
 if __name__ == "__main__":
     main()
