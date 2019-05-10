@@ -2,7 +2,7 @@ import base_function
 from collections import Counter
 
 
-def pos_checker(bam_lst, record_pos, ref_var, ref_base):
+def pos_checker(bam_lst, record_pos, ref_var, ref_base, b_trans):
     mpd_dict = {}
     unmpd_dict = {}
     mpd_b_dict = {}
@@ -69,8 +69,8 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base):
                     mpd_dict["String_2_Hits"] = pos_hits(str2_lst, record_pos)[0]
                     unmpd_dict["String_1_Hits"] = pos_hits(str1_lst, record_pos)[1]
                     unmpd_dict["String_2_Hits"] = pos_hits(str2_lst, record_pos)[1]
-                    mpd_b_dict = base_function.ffpe_finder(mpd_dict, ref_var, ref_base)
-                    unmpd_b_dict = base_function.ffpe_finder(unmpd_dict, ref_var, ref_base)
+                    mpd_b_dict = base_function.ffpe_finder(mpd_dict, ref_var, ref_base, b_trans)
+                    unmpd_b_dict = base_function.ffpe_finder(unmpd_dict, ref_var, ref_base, b_trans)
                 else:
                     str1_ms_hits = pos_hits(str1_lst, record_pos)[0]
                     str1_us_hits = pos_hits(str1_lst, record_pos)[1]

@@ -15,7 +15,7 @@ import count_function
 import pos_function
 
 
-def vcf_extract(record, bam_file):
+def vcf_extract(record, bam_file, b_trans):
     bam_lst = []
     n_ref = record.ref
     n_ref = ''.join(n_ref)
@@ -38,8 +38,8 @@ def vcf_extract(record, bam_file):
         bam_lst.append(read)
 
     # Calls the pos_checker function to obtain ffpe_data
-    mpd_data = pos_function.pos_checker(bam_lst, n_pos, n_alt, n_ref)[0]
-    unmpd_data = pos_function.pos_checker(bam_lst, n_pos, n_alt, n_ref)[1]
+    mpd_data = pos_function.pos_checker(bam_lst, n_pos, n_alt, n_ref, b_trans)[0]
+    unmpd_data = pos_function.pos_checker(bam_lst, n_pos, n_alt, n_ref, b_trans)[1]
 
     mpd_inf = inf_builder(mpd_data, n_alt, n_ref)
     unmpd_inf = inf_builder(unmpd_data, n_alt, n_ref)
@@ -98,20 +98,21 @@ class QueueThread(threading.Thread):
 
 
 class ResultThread(threading.Thread):
-    def __init__(self, bam_path, thr_que, res_que, target=None, name=None):
+    def __init__(self, bam_path, thr_que, res_que, b_trans, target=None, name=None):
         super(ResultThread, self).__init__()
         self.target = target
         self.name = name
         self.thr_que = thr_que
         self.res_que = res_que
         self.bam_path = bam_path
+        self.b_trans = b_trans
 
     def run(self):
         # Calls upon the function vcf_extract while the queue is not empty, stores the results in res_que if not None
         bam_file = pysam.AlignmentFile(self.bam_path, "r")
         while not self.thr_que.empty():
             record = self.thr_que.get()
-            n_cop = vcf_extract(record, bam_file)
+            n_cop = vcf_extract(record, bam_file, self.b_trans)
             if n_cop is not None:
                 self.res_que.put(n_cop)
 
@@ -121,11 +122,14 @@ def main():
                                                  'Cancer-sample tissue data')
     parser.add_argument('-b', '--inputBAM', help='Input BAM file (Required)', required=True)
     parser.add_argument('-v', '--inputVCF', help='Input VCF file (Required)', required=True)
-    parser.add_argument('-qs', '--queueSize', help='Input Queue-Size (Optional)', required=False, default=0)
     parser.add_argument('-t', '--threads', help='No. threads to run the program (Optional)', required=False, default=1)
+    parser.add_argument('-qs', '--queueSize', help='Input Queue-Size (Optional)', required=False, default=0)
+    parser.add_argument('-fb', '--FFPEBases', help='Choose "all" to include all base transitions in the analysis, '
+                                                   '(deafult: C:G>T:A)', required=False, default="standard")
 
     args = vars(parser.parse_args())
     thr_que = queue.Queue(int(args["queueSize"]))
+    b_trans = str(args["FFPEBases"])
     res_que = queue.Queue()
 
     t_start = time.time()
@@ -144,7 +148,8 @@ def main():
     p_que = QueueThread(name='producer', vcf_file=vcf_file, thr_que=thr_que)
     p_que.start()
     time.sleep(0.5)
-    cons = [ResultThread(name='consumer', bam_path=bam_path, thr_que=thr_que, res_que=res_que) for t in range(int(args["threads"]))]
+    cons = [ResultThread(name='consumer', bam_path=bam_path, thr_que=thr_que, res_que=res_que, b_trans=b_trans)
+            for t in range(int(args["threads"]))]
     # Starts the consumer thread to generate output from the queue
     for c in cons:
         c.start()

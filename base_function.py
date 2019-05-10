@@ -27,7 +27,8 @@ def base_count(read_base):
     return pos_dict
 
 
-def ffpe_finder(base_res, ref_var, ref_base):
+def ffpe_finder(base_dict, ref_var, ref_base, b_trans):
+    var_dict = {}
     n_sym = "N"
     del_sym = "-"
     ffpe_dict = {}
@@ -40,14 +41,11 @@ def ffpe_finder(base_res, ref_var, ref_base):
     n_dict = {}
     del_ind = 0
     del_dict = {}
-
     try:
         # Retrieves the forward and reverse base hits for the key value
-        f_hits = base_res["String_1_Hits"]
-        r_hits = base_res["String_2_Hits"]
-        # Iterates through each variant called by the program
-        # First checks if the variant is present in both forward and reverse molecule, if so it is a Mutation
-        # If both positions are deemed to be the reference, it is added to the ref_dict
+        f_hits = base_dict["String_1_Hits"]
+        r_hits = base_dict["String_2_Hits"]
+
         if f_hits == r_hits and f_hits == ref_base:
             ref_dict = {"String_1": f_hits, "String_2": r_hits}
             ref_ind += 1
@@ -63,12 +61,22 @@ def ffpe_finder(base_res, ref_var, ref_base):
             del_dict = {"String_1": f_hits, "String_2": r_hits}
             del_ind += 1
         elif f_hits != n_sym and f_hits != del_sym and r_hits != n_sym and r_hits != del_sym and f_hits != r_hits:
-            ffpe_dict = {"String_1": f_hits, "String_2": r_hits}
-            ffpe_ind += 1
+            if b_trans == 'standard':
+                # Checks the b_trans parameter, if standard only "FFPE" instances are classified as FFPE
+                if (f_hits == 'C' and r_hits != 'T') or (f_hits == 'G' and r_hits != 'A') or (f_hits == 'T'
+                        and r_hits != 'C') or (f_hits == 'A' and r_hits != 'G'):
+                    mut_dict = {"String_1": f_hits, "String_2": r_hits}
+                    mut_ind += 1
+                else:
+                    ffpe_dict = {"String_1": f_hits, "String_2": r_hits}
+                    ffpe_ind += 1
+            elif b_trans == 'all':
+                    ffpe_dict = {"String_1": f_hits, "String_2": r_hits}
+                    ffpe_ind += 1
+        var_dict = {"Reference_Hits": ref_dict, "Mutation_Hits": mut_dict, "FFPE_Hits": ffpe_dict,
+                    "N_Hits": n_dict, "Del_Hits": del_dict, "Reference_Support": ref_ind, "Mutation_Support": mut_ind,
+                    "FFPE_Support": ffpe_ind, "N_Support": n_ind, "Del_Support": del_ind}
     except KeyError as e:
         print("No match for: " + str(e) + " found, comparison not possible")
     # Returns all dictionaries in a list along with their total counts
-    var_dict = {"Reference_Hits": ref_dict, "Mutation_Hits": mut_dict, "FFPE_Hits": ffpe_dict,
-                "N_Hits": n_dict, "Del_Hits": del_dict, "Reference_Support": ref_ind, "Mutation_Support": mut_ind,
-                "FFPE_Support": ffpe_ind, "N_Support": n_ind, "Del_Support": del_ind}
     return var_dict
