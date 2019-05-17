@@ -38,8 +38,9 @@ def vcf_extract(record, bam_file, b_trans):
         bam_lst.append(read)
 
     # Calls the pos_checker function to obtain ffpe_data
-    mpd_data = pos_function.pos_checker(bam_lst, n_pos, n_alt, n_ref, b_trans)[0]
-    unmpd_data = pos_function.pos_checker(bam_lst, n_pos, n_alt, n_ref, b_trans)[1]
+    res_data = pos_function.pos_checker(bam_lst, n_pos, n_alt, n_ref, b_trans)
+    mpd_data = res_data[0]
+    unmpd_data = res_data[1]
 
     mpd_inf = inf_builder(mpd_data, n_alt, n_ref)
     unmpd_inf = inf_builder(unmpd_data, n_alt, n_ref)
@@ -125,7 +126,7 @@ def main():
     parser.add_argument('-t', '--threads', help='No. threads to run the program (Optional)', required=False, default=1)
     parser.add_argument('-qs', '--queueSize', help='Input Queue-Size (Optional)', required=False, default=0)
     parser.add_argument('-fb', '--FFPEBases', help='Choose "all" to include all base transitions in the analysis, '
-                                                   '(deafult: C:G>T:A)', required=False, default="standard")
+                                                   '(default: C:G>T:A)', required=False, default="standard")
 
     args = vars(parser.parse_args())
     thr_que = queue.Queue(int(args["queueSize"]))
@@ -142,7 +143,8 @@ def main():
                                                "Paired;Single;Paired;Single")
     vcf_head.formats.add("UUMI", ".", "String", "Unmapped UMI information for variant then reference"
                                                 " Paired;Single;Paired;Single")
-    n_vcf = pysam.VariantFile("fumic_output.vcf", mode='w', header=vcf_head)
+
+    n_vcf = pysam.VariantFile('fumic_output.vcf', mode='w', header=vcf_head)
 
     # Starts the producer thread to populate the queue
     p_que = QueueThread(name='producer', vcf_file=vcf_file, thr_que=thr_que)
@@ -165,3 +167,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

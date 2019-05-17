@@ -17,13 +17,13 @@ def base_check(read, record_pos):
 
 def base_count(read_base):
     base_lst = ["A", "T", "G", "C", "N", "-"]
-    base_cl = [0]*6
+    base_zlst = [0]*6
     # Checks the read_base against the base_lst and increases the corresponding counter if a match is found
     for base in base_lst:
         if base == read_base:
-            base_cl[base_lst.index(base)] += 1
+            base_zlst[base_lst.index(base)] += 1
     # Returns a dict with the counts for each entry in the base_lst
-    pos_dict = {"A": base_cl[0], "T": base_cl[1], "G": base_cl[2], "C": base_cl[3], "N": base_cl[4], "-": base_cl[5]}
+    pos_dict = {"A": base_zlst[0], "T": base_zlst[1], "G": base_zlst[2], "C": base_zlst[3], "N": base_zlst[4], "-": base_zlst[5]}
     return pos_dict
 
 
@@ -64,12 +64,13 @@ def ffpe_finder(base_dict, ref_var, ref_base, b_trans):
             if b_trans == 'standard':
                 # Checks the b_trans parameter, if standard only "FFPE" instances are classified as FFPE
                 if (f_hits == 'C' and r_hits != 'T') or (f_hits == 'G' and r_hits != 'A') or (f_hits == 'T'
-                        and r_hits != 'C') or (f_hits == 'A' and r_hits != 'G'):
-                    mut_dict = {"String_1": f_hits, "String_2": r_hits}
-                    mut_ind += 1
+                                                            and r_hits != 'C') or (f_hits == 'A' and r_hits != 'G'):
+                        mut_dict = {"String_1": f_hits, "String_2": r_hits}
+                        mut_ind += 1
                 else:
-                    ffpe_dict = {"String_1": f_hits, "String_2": r_hits}
-                    ffpe_ind += 1
+                    if f_hits or r_hits == ref_var:
+                        ffpe_dict = {"String_1": f_hits, "String_2": r_hits}
+                        ffpe_ind += 1
             elif b_trans == 'all':
                     ffpe_dict = {"String_1": f_hits, "String_2": r_hits}
                     ffpe_ind += 1

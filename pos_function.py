@@ -118,7 +118,6 @@ def pos_hits(inp_lst, record_pos):
         if read_base:
             tmp_m_dict = Counter(base_function.base_count(read_base))
             mpd_dict = mpd_dict + tmp_m_dict
-            mpd_dict.update(base_function.base_count(read_base))
         if uread_base:
             tmp_u_dict = Counter(base_function.base_count(uread_base))
             unmpd_dict = unmpd_dict + tmp_u_dict
