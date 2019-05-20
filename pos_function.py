@@ -2,7 +2,7 @@ import base_function
 from collections import Counter
 
 
-def pos_checker(bam_lst, record_pos, ref_var, ref_base, b_trans):
+def pos_checker(bam_lst, record_pos, ref_var, ref_base, ffpe_b, ext_fun, splt_fun, spl_cha):
     mpd_dict = {}
     unmpd_dict = {}
     mpd_b_dict = {}
@@ -12,39 +12,13 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base, b_trans):
     unmpd_res = {}
     try:
         for read in bam_lst:
-            # Gets the name of the sequence
-            qn = read.query_name
-            # Splits the name based on "_" character
-            qn_spl = qn.split("_")
-            # Selects the last element of the vector
-            umi = qn_spl[-1]
-            # Obtains the barcode's based on splitting the vector  using the "+" symbol
-            brc = umi.split("+")
-            umi_l = brc[0]
-            umi_r = brc[1]
+            umi = ext_fun(read)
+            splt_umi = splt_fun(umi, spl_cha)
+            umi_res = umi_maker(read, splt_umi)
+            qr_nm = umi_res[0]
+            strand = umi_res[1]
+            umi_id = umi_res[2]
 
-            # Checks read polarity to see whether or not it is reverse paired
-            strand = "String_1"
-            qr_nm = read.query_name
-            if read.is_read1:
-                if read.is_reverse:
-                    # Forward direction on the reverse molecule
-                    strand = "String_2"
-                    umi_id = umi_r + "_" + umi_l
-                else:
-                    # Forward direction on the forward molecule
-                    umi_id = umi_l + "_" + umi_r
-            else:
-                if read.is_reverse:
-                    # Reverse direction on the reverse molecule
-                    umi_id = umi_l + "_" + umi_r
-                else:
-                    # Forward direction on the reverse molecule
-                    strand = "String_2"
-                    umi_id = umi_r + "_" + umi_l
-
-            # Adds every read to a list corresponding to its polarity, the lists in turn are part of a dict represented
-            # By its unique id-tag created from its leftmost position and UMIs
             try:
                 umi_dict[umi_id][strand][qr_nm].append(read)
             except KeyError:
@@ -69,8 +43,8 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base, b_trans):
                     mpd_dict["String_2_Hits"] = pos_hits(str2_lst, record_pos)[0]
                     unmpd_dict["String_1_Hits"] = pos_hits(str1_lst, record_pos)[1]
                     unmpd_dict["String_2_Hits"] = pos_hits(str2_lst, record_pos)[1]
-                    mpd_b_dict = base_function.ffpe_finder(mpd_dict, ref_var, ref_base, b_trans)
-                    unmpd_b_dict = base_function.ffpe_finder(unmpd_dict, ref_var, ref_base, b_trans)
+                    mpd_b_dict = base_function.ffpe_finder(mpd_dict, ref_var, ref_base, ffpe_b)
+                    unmpd_b_dict = base_function.ffpe_finder(unmpd_dict, ref_var, ref_base, ffpe_b)
                 else:
                     str1_ms_hits = pos_hits(str1_lst, record_pos)[0]
                     str1_us_hits = pos_hits(str1_lst, record_pos)[1]
@@ -85,6 +59,52 @@ def pos_checker(bam_lst, record_pos, ref_var, ref_base, b_trans):
     except KeyError as e:
         print("ERROR: The requested key " + str(e) + " does not exist")
     return [mpd_res, unmpd_res]
+
+
+def qrn_ext(read):
+    return read.query_name.split("_")[-1]
+
+
+def tgg_ext(read):
+    return str(read.get_tag("RX"))
+
+
+def hlf_splt(umi_str, char):
+    return umi_str[:len(umi_str) // 2], umi_str[len(umi_str) // 2:]
+
+
+def cha_splt(umi_str, char):
+    return umi_str.split(char)
+
+
+def umi_maker(read, splt_umi):
+    umi_l = splt_umi[0]
+    umi_r = splt_umi[1]
+
+    # Checks read polarity to see whether or not it is reverse paired
+    strand = "String_1"
+    qr_nm = read.query_name
+    if read.is_read1:
+        if read.is_reverse:
+            # Forward direction on the reverse molecule
+            strand = "String_2"
+            umi_id = umi_r + "_" + umi_l
+        else:
+            # Forward direction on the forward molecule
+            umi_id = umi_l + "_" + umi_r
+    else:
+        if read.is_reverse:
+            # Reverse direction on the reverse molecule
+            umi_id = umi_l + "_" + umi_r
+        else:
+            # Forward direction on the reverse molecule
+            strand = "String_2"
+            umi_id = umi_r + "_" + umi_l
+
+    # Adds every read to a list corresponding to its polarity, the lists in turn are part of a dict represented
+    # By its unique id-tag created from its leftmost position and UMIs
+
+    return [qr_nm, strand, umi_id]
 
 
 def pos_hits(inp_lst, record_pos):

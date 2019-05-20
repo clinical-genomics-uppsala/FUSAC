@@ -15,7 +15,7 @@ import count_function
 import pos_function
 
 
-def vcf_extract(record, bam_file, b_trans):
+def vcf_extract(record, bam_file, ffpe_b, ext_fun, spl_fun, spl_cha):
     bam_lst = []
     n_ref = record.ref
     n_ref = ''.join(n_ref)
@@ -38,7 +38,7 @@ def vcf_extract(record, bam_file, b_trans):
         bam_lst.append(read)
 
     # Calls the pos_checker function to obtain ffpe_data
-    res_data = pos_function.pos_checker(bam_lst, n_pos, n_alt, n_ref, b_trans)
+    res_data = pos_function.pos_checker(bam_lst, n_pos, n_alt, n_ref, ffpe_b, ext_fun, spl_fun, spl_cha)
     mpd_data = res_data[0]
     unmpd_data = res_data[1]
 
@@ -99,26 +99,31 @@ class QueueThread(threading.Thread):
 
 
 class ResultThread(threading.Thread):
-    def __init__(self, bam_path, thr_que, res_que, b_trans, target=None, name=None):
+    def __init__(self, bam_path, thr_que, res_que, ffpe_b, ext_fun, spl_fun, spl_cha, target=None, name=None):
         super(ResultThread, self).__init__()
         self.target = target
         self.name = name
         self.thr_que = thr_que
         self.res_que = res_que
         self.bam_path = bam_path
-        self.b_trans = b_trans
+        self.ffpe_b = ffpe_b
+        self.ext_fun = ext_fun
+        self.spl_fun = spl_fun
+        self.spl_cha = spl_cha
 
     def run(self):
         # Calls upon the function vcf_extract while the queue is not empty, stores the results in res_que if not None
-        bam_file = pysam.AlignmentFile(self.bam_path, "r")
+        bam_file = pysam.AlignmentFile(self.bam_path, "r", check_sq=False)
         while not self.thr_que.empty():
             record = self.thr_que.get()
-            n_cop = vcf_extract(record, bam_file, self.b_trans)
+            n_cop = vcf_extract(record, bam_file, self.ffpe_b, self.ext_fun, self.spl_fun, self.spl_cha)
             if n_cop is not None:
                 self.res_que.put(n_cop)
 
 
 def main():
+    t_start = time.time()
+
     parser = argparse.ArgumentParser(description='FUMIC - FFPE-artefact UMI-based Mapper for Imputation in '
                                                  'Cancer-sample tissue data')
     parser.add_argument('-b', '--inputBAM', help='Input BAM file (Required)', required=True)
@@ -127,13 +132,27 @@ def main():
     parser.add_argument('-qs', '--queueSize', help='Input Queue-Size (Optional)', required=False, default=0)
     parser.add_argument('-fb', '--FFPEBases', help='Choose "all" to include all base transitions in the analysis, '
                                                    '(default: C:G>T:A)', required=False, default="standard")
+    parser.add_argument('-dt', '--DataType', help='Data-type: Query-name-based (default, qrn) , Tagged-based (tgg)', required=False, default="rdn")
+    parser.add_argument('-sc', '--SplitCharacter', help='Split character for the UMI-tag, qrn default = +, tgg default = "" for splitting in half', required=False, default="+")
 
     args = vars(parser.parse_args())
     thr_que = queue.Queue(int(args["queueSize"]))
-    b_trans = str(args["FFPEBases"])
-    res_que = queue.Queue()
+    ffpe_b = str(args["FFPEBases"])
+    d_type = str(args["DataType"])
+    spl_cha = str(args["SplitCharacter"])
 
-    t_start = time.time()
+    if d_type == "rdn":
+        ext_fun = pos_function.qrn_ext
+    else:
+        ext_fun = pos_function.tgg_ext
+        spl_cha = ""
+
+    if spl_cha == "+":
+        spl_fun = pos_function.cha_splt
+    else:
+        spl_fun = pos_function.hlf_splt
+
+    res_que = queue.Queue()
     vcf_file = pysam.VariantFile(args['inputVCF'], "r")
     bam_path = args['inputBAM']
     vcf_head = vcf_file.header
@@ -149,8 +168,7 @@ def main():
     # Starts the producer thread to populate the queue
     p_que = QueueThread(name='producer', vcf_file=vcf_file, thr_que=thr_que)
     p_que.start()
-    time.sleep(0.5)
-    cons = [ResultThread(name='consumer', bam_path=bam_path, thr_que=thr_que, res_que=res_que, b_trans=b_trans)
+    cons = [ResultThread(name='consumer', bam_path=bam_path, thr_que=thr_que, res_que=res_que, ffpe_b=ffpe_b, ext_fun=ext_fun, spl_fun=spl_fun, spl_cha=spl_cha)
             for t in range(int(args["threads"]))]
     # Starts the consumer thread to generate output from the queue
     for c in cons:
