@@ -1,10 +1,23 @@
-def base_check(read, record_pos):
+def base_check(read, rec_pos):
+    """ Checks the variant-record position against the supplemented read and extracts the base belonging to this
+    postion in the read.
+
+    Args:
+        :param read: Input read
+        :param rec_pos: Position of the variant in the reference genome
+
+    Returns:
+        :return: Returns the base found at read matching the position of the variant in the reference genome
+
+    Raises:
+        :raises ValueError: If a ValueError is found, the function returns nothing
+    """
     try:
         # Gets the positions the sequence maps to in the reference
         # Full length with soft clips is required for the index selection to be correct
         read_pos = read.get_reference_positions(full_length=True)
         # Gets the index of the position the sequence maps to
-        ind_pos = read_pos.index(record_pos)
+        ind_pos = read_pos.index(rec_pos)
         # Obtains the query sequence (the sequence as it were read)
         read_seq = read.query_sequence
         read_seq = list(read_seq)
@@ -15,22 +28,26 @@ def base_check(read, record_pos):
         pass
 
 
-def base_count(read_base):
-    base_lst = ["A", "T", "G", "C", "N", "-"]
-    base_zlst = [0]*6
-    # Checks the read_base against the base_lst and increases the corresponding counter if a match is found
-    for base in base_lst:
-        if base == read_base:
-            base_zlst[base_lst.index(base)] += 1
-    # Returns a dict with the counts for each entry in the base_lst
-    pos_dict = {"A": base_zlst[0], "T": base_zlst[1], "G": base_zlst[2], "C": base_zlst[3], "N": base_zlst[4], "-": base_zlst[5]}
-    return pos_dict
+def ffpe_finder(base_dict, ref_var, ref_base, ffpe_b):
+    """ Function for classying the UMI variant-type. Alltogether the UMI and its variantrecord position can be
+    classifies as: No mutation, Mutation, FFPE-artefact, Unknown (N-symbol) or Deletion (-). The function takes the
+    str1 and str2 base and compares these to one another to classify the position, and add to the appropriate index.
 
+    Args:
+        :param base_dict: Dict containing Str1 and Str2 with their representative bases
+        :param ref_var: The variantrecord variant base
+        :param ref_base: The variantrecord reference genome base
+        :param ffpe_b: Parameter determining if all bases should be included for FFPE-classification, or just
+        C>T:G>A
 
-def ffpe_finder(base_dict, ref_var, ref_base, b_trans):
+    Returns:
+        :return: Returns a dict with separate dicts for every possible variant type, which in turns contains the
+        String_1 and String_2 base for this position. Also returns an index for the variant type.
+
+    Raises:
+        :raises KeyError: Raises a key-error if somehow, there are not two read-bases to compare
+    """
     var_dict = {}
-    n_sym = "N"
-    del_sym = "-"
     ffpe_dict = {}
     ffpe_ind = 0
     mut_dict = {}
@@ -41,38 +58,40 @@ def ffpe_finder(base_dict, ref_var, ref_base, b_trans):
     n_dict = {}
     del_ind = 0
     del_dict = {}
+    n_sym = "N"
+    del_sym = "-"
     try:
         # Retrieves the forward and reverse base hits for the key value
-        f_hits = base_dict["String_1_Hits"]
-        r_hits = base_dict["String_2_Hits"]
+        str1_bas = base_dict["String_1_Hits"]
+        str2_bas = base_dict["String_2_Hits"]
 
-        if f_hits == r_hits and f_hits == ref_base:
-            ref_dict = {"String_1": f_hits, "String_2": r_hits}
+        if str1_bas == str2_bas and str1_bas == ref_base:
+            ref_dict = {"String_1": str1_bas, "String_2": str2_bas}
             ref_ind += 1
         # If both positions contains the variant, it is added to the mut_dict
-        elif f_hits == r_hits and f_hits == ref_var:
-            mut_dict = {"String_1": f_hits, "String_2": r_hits}
+        elif str1_bas == str2_bas and str1_bas == ref_var:
+            mut_dict = {"String_1": str1_bas, "String_2": str2_bas}
             mut_ind += 1
         # If either of the positions are equal to an N or a deletion, they are deemed as a N or Del respectively
-        elif f_hits == n_sym or r_hits == n_sym:
-            n_dict = {"String_1": f_hits, "String_2": r_hits}
+        elif str1_bas == n_sym or str2_bas == n_sym:
+            n_dict = {"String_1": str1_bas, "String_2": str2_bas}
             n_ind += 1
-        elif f_hits == del_sym or r_hits == del_sym:
-            del_dict = {"String_1": f_hits, "String_2": r_hits}
+        elif str1_bas == del_sym or str2_bas == del_sym:
+            del_dict = {"String_1": str1_bas, "String_2": str2_bas}
             del_ind += 1
-        elif f_hits != n_sym and f_hits != del_sym and r_hits != n_sym and r_hits != del_sym and f_hits != r_hits:
-            if b_trans == 'standard':
+        elif str1_bas != str2_bas:
+            if ffpe_b == 'standard':
                 # Checks the b_trans parameter, if standard only "FFPE" instances are classified as FFPE
-                if (f_hits == 'C' and r_hits != 'T') or (f_hits == 'G' and r_hits != 'A') or (f_hits == 'T'
-                                                            and r_hits != 'C') or (f_hits == 'A' and r_hits != 'G'):
-                        mut_dict = {"String_1": f_hits, "String_2": r_hits}
+                if (str1_bas == 'C' and str2_bas != 'T') or (str1_bas == 'G' and str2_bas != 'A') or \
+                        (str1_bas == 'T' and str2_bas != 'C') or (str1_bas == 'A' and str2_bas != 'G'):
+                        mut_dict = {"String_1": str1_bas, "String_2": str2_bas}
                         mut_ind += 1
                 else:
-                    if f_hits or r_hits == ref_var:
-                        ffpe_dict = {"String_1": f_hits, "String_2": r_hits}
+                    if str1_bas or str2_bas == ref_var:
+                        ffpe_dict = {"String_1": str1_bas, "String_2": str2_bas}
                         ffpe_ind += 1
-            elif b_trans == 'all':
-                    ffpe_dict = {"String_1": f_hits, "String_2": r_hits}
+            elif ffpe_b == 'all':
+                    ffpe_dict = {"String_1": str1_bas, "String_2": str2_bas}
                     ffpe_ind += 1
         var_dict = {"Reference_Hits": ref_dict, "Mutation_Hits": mut_dict, "FFPE_Hits": ffpe_dict,
                     "N_Hits": n_dict, "Del_Hits": del_dict, "Reference_Support": ref_ind, "Mutation_Support": mut_ind,

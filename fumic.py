@@ -10,6 +10,7 @@ import time
 import argparse
 import threading
 import queue
+# import concurrent.futures
 
 import count_function
 import pos_function
@@ -49,9 +50,9 @@ def vcf_extract(record, bam_file, ffpe_b, ext_fun, spl_fun, spl_cha):
         n_cop.samples[sample]['UMI'] = str(mpd_inf[0][0]) + ";" + str(mpd_inf[0][1]) + ";" + str(mpd_inf[0][2]) + \
                                            ";" + str(mpd_inf[0][3]) + ";" + str(mpd_inf[0][4]) + ";" + mpd_inf[1] + \
                                            ";" + mpd_inf[2] + ";" + mpd_inf[3] + ";" + mpd_inf[4]
-        n_cop.samples[sample]['UUMI'] = str(unmpd_inf[0][0]) + ";" + str(unmpd_inf[0][1]) + ";" + \
-                                        str(unmpd_inf[0][2]) + ";" + str(unmpd_inf[0][3]) + ";" + \
-                                        str(unmpd_inf[0][4]) + ";" + unmpd_inf[1] + ";" + unmpd_inf[2] \
+        n_cop.samples[sample]['UUMI'] = str(unmpd_inf[0][0]) + ";" + str(unmpd_inf[0][1]) + \
+                                        ";" + str(unmpd_inf[0][2]) + ";" + str(unmpd_inf[0][3]) + \
+                                        ";" + str(unmpd_inf[0][4]) + ";" + unmpd_inf[1] + ";" + unmpd_inf[2] \
                                         + ";" + unmpd_inf[3] + ";" + unmpd_inf[4]
 
         # Checks if any record in the returned dict indicates an FFPE, if so updates the n_fil parameter
@@ -63,11 +64,27 @@ def vcf_extract(record, bam_file, ffpe_b, ext_fun, spl_fun, spl_cha):
     return n_cop
 
 
-def inf_builder(inp, n_ref, n_alt):
+def inf_builder(inp_dict, n_ref, n_alt):
+    """ Uses the output from pos_checker to generate a list containing strings representing the data found for each
+    record, more specifically support for each variant-type, as well as the support for the reference and variant
+    call for str1 and str2.
+
+    Args:
+        :param inp_dict: Input dict dict for mapped and unmapped reads. Each of these dicts containing a single-hits
+        and a mate-hits dict. The mate-hits dict in turn contains data regarding if the variant is a mutation,
+        no mutation, FFPE-artfefact deletion or N-call. Whereas the single-hits dict contains positional data for reads
+        with no mate.
+        :param n_ref: Nucletoide in the reference genome for the variant-record variant position
+        :param n_alt: Variant for the variant-record variant position
+
+    Returns:
+        :return: Returns a list containing the support for each variant-type, as well as the support for the reference
+        and variant call for str1 and str2
+    """
     # Calls the sup_count function to obtain the support for each nucleotide called
-    ref_sup = count_function.sup_count(inp, n_ref)
-    alt_sup = count_function.sup_count(inp, n_alt)
-    type_sup = count_function.mol_count(inp)
+    ref_sup = count_function.nuc_count(inp_dict, n_ref)
+    alt_sup = count_function.nuc_count(inp_dict, n_alt)
+    type_sup = count_function.mol_count(inp_dict)
     ref_p = None
     ref_s = None
     var_p = None
@@ -121,6 +138,17 @@ class ResultThread(threading.Thread):
                 self.res_que.put(n_cop)
 
 
+# def open_and_call(func, arg_lst):
+#     bam_path = arg_lst[0]
+#     record = arg_lst[1]
+#     ffpe_b = arg_lst[2]
+#     ext_fun = arg_lst[3]
+#     spl_fun = arg_lst[4]
+#     spl_cha = arg_lst[5]
+#     with pysam.AlignmentFile(bam_path, "r", check_sq=False) as bam_file:
+#         return func(record, bam_file, ffpe_b, ext_fun, spl_fun, spl_cha)
+
+
 def main():
     t_start = time.time()
 
@@ -130,21 +158,25 @@ def main():
     parser.add_argument('-v', '--inputVCF', help='Input VCF file (Required)', required=True)
     parser.add_argument('-t', '--threads', help='No. threads to run the program (Optional)', required=False, default=1)
     parser.add_argument('-qs', '--queueSize', help='Input Queue-Size (Optional)', required=False, default=0)
-    parser.add_argument('-fb', '--FFPEBases', help='Choose "all" to include all base transitions in the analysis, '
-                                                   '(default: C:G>T:A)', required=False, default="standard")
-    parser.add_argument('-dt', '--DataType', help='Data-type: Query-name-based (default, qrn) , Tagged-based (tgg)', required=False, default="rdn")
-    parser.add_argument('-sc', '--SplitCharacter', help='Split character for the UMI-tag, qrn default = +, tgg default = "" for splitting in half', required=False, default="+")
+    parser.add_argument('-fb', '--ffpeBases', help='Choose "all" to include all base transitions in the analysis, '
+                                                   'Default: C:G>T:A, Alternative: All',
+                        required=False, default="standard")
+    parser.add_argument('-up', '--umiPosition', help='UMI-Position: Default: Query-Name (qrn),'
+                                                     ' Alternative: RX-tag based (rx)', required=False, default="qrn")
+    parser.add_argument('-sc', '--splitCharacter',
+                        help='Split character for the UMI-tag, qrn default = +, tgg default = "" for splitting in half',
+                        required=False, default="+")
 
     args = vars(parser.parse_args())
     thr_que = queue.Queue(int(args["queueSize"]))
-    ffpe_b = str(args["FFPEBases"])
-    d_type = str(args["DataType"])
-    spl_cha = str(args["SplitCharacter"])
+    ffpe_b = str(args["ffpeBases"])
+    umi_pos = str(args["umiPosition"])
+    spl_cha = str(args["splitCharacter"])
 
-    if d_type == "rdn":
+    if umi_pos == "qrn":
         ext_fun = pos_function.qrn_ext
     else:
-        ext_fun = pos_function.tgg_ext
+        ext_fun = pos_function.rx_ext
         spl_cha = ""
 
     if spl_cha == "+":
@@ -168,21 +200,31 @@ def main():
     # Starts the producer thread to populate the queue
     p_que = QueueThread(name='producer', vcf_file=vcf_file, thr_que=thr_que)
     p_que.start()
-    cons = [ResultThread(name='consumer', bam_path=bam_path, thr_que=thr_que, res_que=res_que, ffpe_b=ffpe_b, ext_fun=ext_fun, spl_fun=spl_fun, spl_cha=spl_cha)
-            for t in range(int(args["threads"]))]
+    threads = []
+    for t in range(int(args["threads"])):
+        threads.append(ResultThread(name='consumer', bam_path=bam_path, thr_que=thr_que, res_que=res_que, ffpe_b=ffpe_b,
+                                    ext_fun=ext_fun, spl_fun=spl_fun, spl_cha=spl_cha))
+
     # Starts the consumer thread to generate output from the queue
-    for c in cons:
-        c.start()
+    for t in threads:
+        t.start()
     p_que.join()
-    for c in cons:
-        c.join()
+    for t in threads:
+        t.join()
     # Writes the consumer output to the vcf-file
     while not res_que.empty():
         n_vcf.write(res_que.get())
     t_end = time.time()
     print("Total runtime: " + str(t_end - t_start) + "s")
 
+    # with concurrent.futures.ThreadPoolExecutor(max_workers=thr_no) as executor:
+    #     futures = [executor.submit(open_and_call, vcf_extract, [bam_path, record, ffpe_b, ext_fun, spl_fun, spl_cha])
+    #     for record in vcf_file]
+    #
+    # for future in futures:
+    #     if future.result() is not None:
+    #         n_vcf.write(future.result())
+
 
 if __name__ == "__main__":
     main()
-
