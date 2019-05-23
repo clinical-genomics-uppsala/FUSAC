@@ -14,12 +14,13 @@ def base_check(read, rec_pos):
     """
     try:
         # Gets the positions the sequence maps to in the reference
-        # Full length with soft clips is required for the index selection to be correct
+        # Full length with soft clips is required for the index selection to be correct, returns the reverse complement
+        # for any reverse strand
         read_pos = read.get_reference_positions(full_length=True)
         # Gets the index of the position the sequence maps to
         ind_pos = read_pos.index(rec_pos)
         # Obtains the query sequence (the sequence as it were read)
-        read_seq = read.query_sequence
+        read_seq = read.get_forward_sequence()
         read_seq = list(read_seq)
         # Gets the base present at the index position of the variant
         read_base = read_seq[ind_pos]
@@ -35,8 +36,8 @@ def ffpe_finder(base_dict, ref_var, ref_base, ffpe_b):
 
     Args:
         :param base_dict: Dict containing Str1 and Str2 with their representative bases
-        :param ref_var: The variantrecord variant base
-        :param ref_base: The variantrecord reference genome base
+        :param ref_var: The variant-record variant base, this is always aligned to the positive strand
+        :param ref_base: The variant-record reference genome base, always aligned to the  positive strand
         :param ffpe_b: Parameter determining if all bases should be included for FFPE-classification, or just
         C>T:G>A
 
@@ -82,14 +83,29 @@ def ffpe_finder(base_dict, ref_var, ref_base, ffpe_b):
         elif str1_bas != str2_bas:
             if ffpe_b == 'standard':
                 # Checks the b_trans parameter, if standard only "FFPE" instances are classified as FFPE
-                if (str1_bas == 'C' and str2_bas != 'T') or (str1_bas == 'G' and str2_bas != 'A') or \
-                        (str1_bas == 'T' and str2_bas != 'C') or (str1_bas == 'A' and str2_bas != 'G'):
+                # In order:
+                # Hydrolytic deamination causes a C>T or G>A change due to the loss of the amino group
+                # PySAM's get_forward_sequence returns the reverse complement for any reverse reads
+                # Deamination of C-G > T-G, returned as T-C, as G is returned as C by PySAM
+                # Deamination of G-C > G-T, returned as G-A, as T is returned as A by PySAM
+                # Deamination of C-G > C-A, returned as C-T, as A is returned as T by PySAM
+                # Deamination of G-C > A-C, returned as A-G, as C is returned as G by PySAM
+                if (str1_bas == 'T' and str2_bas == 'C') or\
+                        (str1_bas == 'G' and str2_bas == 'A') or \
+                        (str1_bas == 'C' and str2_bas == 'T') or\
+                        (str1_bas == 'A' and str2_bas == 'C'):
+
+                    # Checks to see if any of the bases are equal to the variant call
+                    if str1_bas == ref_var or str2_bas == ref_var:
+                        print("ffpe passed")
+                        ffpe_dict = {"String_1": str1_bas, "String_2": str2_bas}
+                        ffpe_ind += 1
+                    else:
                         mut_dict = {"String_1": str1_bas, "String_2": str2_bas}
                         mut_ind += 1
                 else:
-                    if str1_bas or str2_bas == ref_var:
-                        ffpe_dict = {"String_1": str1_bas, "String_2": str2_bas}
-                        ffpe_ind += 1
+                    mut_dict = {"String_1": str1_bas, "String_2": str2_bas}
+                    mut_ind += 1
             elif ffpe_b == 'all':
                     ffpe_dict = {"String_1": str1_bas, "String_2": str2_bas}
                     ffpe_ind += 1

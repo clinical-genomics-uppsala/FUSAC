@@ -10,8 +10,7 @@ import time
 import argparse
 import threading
 import queue
-# import concurrent.futures
-
+from collections import deque
 import count_function
 import pos_function
 
@@ -112,7 +111,7 @@ class QueueThread(threading.Thread):
     def run(self):
         # Populates the thr_que if not full until every record in the vcf_file has been retrieved
         for record in self.vcf_file:
-            self.thr_que.put(record)
+            self.thr_que.append(record)
 
 
 class ResultThread(threading.Thread):
@@ -131,22 +130,13 @@ class ResultThread(threading.Thread):
     def run(self):
         # Calls upon the function vcf_extract while the queue is not empty, stores the results in res_que if not None
         bam_file = pysam.AlignmentFile(self.bam_path, "r", check_sq=False)
-        while not self.thr_que.empty():
-            record = self.thr_que.get()
+        while self.thr_que:
+        # while not self.thr_que.empty()
+            record = self.thr_que.popleft()
+            # record = self.thr_que.get()
             n_cop = vcf_extract(record, bam_file, self.ffpe_b, self.ext_fun, self.spl_fun, self.spl_cha)
             if n_cop is not None:
                 self.res_que.put(n_cop)
-
-
-# def open_and_call(func, arg_lst):
-#     bam_path = arg_lst[0]
-#     record = arg_lst[1]
-#     ffpe_b = arg_lst[2]
-#     ext_fun = arg_lst[3]
-#     spl_fun = arg_lst[4]
-#     spl_cha = arg_lst[5]
-#     with pysam.AlignmentFile(bam_path, "r", check_sq=False) as bam_file:
-#         return func(record, bam_file, ffpe_b, ext_fun, spl_fun, spl_cha)
 
 
 def main():
@@ -168,7 +158,8 @@ def main():
                         required=False, default="+")
 
     args = vars(parser.parse_args())
-    thr_que = queue.Queue(int(args["queueSize"]))
+    thr_que = deque([0]*int(args["queueSize"]))
+    # thr_que = queue.Queue(int(args["queueSize"]))
     ffpe_b = str(args["ffpeBases"])
     umi_pos = str(args["umiPosition"])
     spl_cha = str(args["splitCharacter"])
@@ -216,14 +207,6 @@ def main():
         n_vcf.write(res_que.get())
     t_end = time.time()
     print("Total runtime: " + str(t_end - t_start) + "s")
-
-    # with concurrent.futures.ThreadPoolExecutor(max_workers=thr_no) as executor:
-    #     futures = [executor.submit(open_and_call, vcf_extract, [bam_path, record, ffpe_b, ext_fun, spl_fun, spl_cha])
-    #     for record in vcf_file]
-    #
-    # for future in futures:
-    #     if future.result() is not None:
-    #         n_vcf.write(future.result())
 
 
 if __name__ == "__main__":
