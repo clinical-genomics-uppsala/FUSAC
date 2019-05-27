@@ -16,6 +16,25 @@ import pos_function
 
 
 def vcf_extract(record, bam_file, ffpe_b, ext_fun, spl_fun, spl_cha):
+    """ Uses the supplemented variant-record to extract all reads in the BAM-file overlapping with its position. This
+    newly generated list is used for the pos_checker function to return molecular data. The output from pos_checker is
+    then subsequently used in the inf-builder function. Finally, the output from inf_builder is added to the
+    input_record. 
+
+    Args:
+        :param record: Variant-record of interest
+        :param bam_file: Path to the BAM-file of interest
+        :param ffpe_b: Parameter to determine if all mismatches should be classified as ffpe, or solely C:G>T:A
+        :param ext_fun: Function for extracting the UMI-tag from a read
+        :param spl_fun: Function used for splitting the UMI-tag in a read
+        :param spl_cha: The character used for splitting the UMI-tag
+
+    Returns:
+        :return: Returns a copy of the variant-record modified by the inf_builder output. More specifically, adds a
+        a list containing the support for each variant-type, as well as the support for the reference
+        and variant call for str1 and str2 to the "samples" field. Furthermore, if any record has support for containing
+        an FFPE-artefact, the "filter" tag will be modified to say "FFPE"
+    """
     bam_lst = []
     n_ref = record.ref
     n_ref = ''.join(n_ref)
@@ -67,7 +86,6 @@ def inf_builder(inp_dict, n_ref, n_alt):
     """ Uses the output from pos_checker to generate a list containing strings representing the data found for each
     record, more specifically support for each variant-type, as well as the support for the reference and variant
     call for str1 and str2.
-
     Args:
         :param inp_dict: Input dict dict for mapped and unmapped reads. Each of these dicts containing a single-hits
         and a mate-hits dict. The mate-hits dict in turn contains data regarding if the variant is a mutation,
@@ -75,7 +93,6 @@ def inf_builder(inp_dict, n_ref, n_alt):
         with no mate.
         :param n_ref: Nucletoide in the reference genome for the variant-record variant position
         :param n_alt: Variant for the variant-record variant position
-
     Returns:
         :return: Returns a list containing the support for each variant-type, as well as the support for the reference
         and variant call for str1 and str2
@@ -202,6 +219,7 @@ def main():
     p_que.join()
     for t in threads:
         t.join()
+
     # Writes the consumer output to the vcf-file
     while not res_que.empty():
         n_vcf.write(res_que.get())
@@ -211,3 +229,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
