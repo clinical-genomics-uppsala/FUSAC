@@ -95,10 +95,10 @@ def main():
     vcf_head = vcf_file.header
     # Generates a new filter category as well as two new format categories for the generated output
     vcf_head.filters.add('FFPE', None, None, 'FFPE Artefact')
-    vcf_head.formats.add("UMI", ".", "String", "UMI information for variant then reference "
-                                               "Paired;Single;Paired;Single")
-    vcf_head.formats.add("UUMI", ".", "String", "Unmapped UMI information for variant then reference"
-                                                " Paired;Single;Paired;Single")
+    vcf_head.formats.add("UMI", ".", "String", "Paired mate information for variant then reference "
+                                               "Paired ref;Paired var;Single ref: Single var")
+    vcf_head.formats.add("SUMI", ".", "String", "Singleton information for variant then reference "
+                                                "Paired ref;Paired var;Single ref: Single var")
 
     n_vcf = pysam.VariantFile('fumic_output.vcf', mode='w', header=vcf_head)
 

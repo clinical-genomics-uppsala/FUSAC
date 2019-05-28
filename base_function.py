@@ -15,7 +15,8 @@ def base_check(read, rec_pos):
     """
     try:
         # Gets the positions the sequence maps to in the reference
-        # Full length with soft clips is required for the index selection to be correct, returns the reverse complement
+        # Full length with soft clips is required for the index selection to be correct, nucleotides are always returned
+        # as they would be on the plus strand
         # for any reverse strand
         read_pos = read.get_reference_positions(full_length=True)
         # Gets the index of the position the sequence maps to
@@ -51,6 +52,8 @@ def ffpe_finder(cons_dict, var_nuc, ref_nuc, ffpe_b):
     Args:
         :param cons_dict: Dict containing the consensus nucleotides for String 1 and String 2,
         classified through their UMI-tag
+        Example dict for a FFPE artefact:
+        cons_dict = {String_1_Hits: C, String_2_Hits: T}
         :param var_nuc: The nucleotide called in the variant-record
         :param ref_nuc: The nucleotide found in the reference genome at the variant-call position
         :param ffpe_b: Parameter determining if all bases should be included for FFPE-classification, or just
@@ -59,6 +62,9 @@ def ffpe_finder(cons_dict, var_nuc, ref_nuc, ffpe_b):
     Returns:
         :return: Returns a dict with separate dicts for every possible variant type, which in turns contains the
         String_1 and String_2 base for this position. Also returns an index for the variant type.
+        Example dict for a FFPE-artefact:
+        var_dict = "Mutation_Hits": {}, "FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {},
+        "Reference_Support": 0, "Mutation_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}
 
     Raises:
         :raises KeyError: Raises a key-error if there are not two read-bases to compare

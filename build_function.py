@@ -45,25 +45,24 @@ def vcf_extract(record, bam_file, ffpe_b, ext_fun, spl_fun, spl_cha):
         bam_lst.append(read)
 
     # Calls the pos_checker function to obtain ffpe_data
-    mpd_data, unmpd_data = var_extract(bam_lst, n_pos, n_alt, n_ref, ffpe_b, ext_fun, spl_fun, spl_cha)
+    mpd_data, singleton_data = var_extract(bam_lst, n_pos, n_alt, n_ref, ffpe_b, ext_fun, spl_fun, spl_cha)
 
     mpd_inf = inf_builder(mpd_data, n_alt, n_ref)
-    unmpd_inf = inf_builder(unmpd_data, n_alt, n_ref)
+    singleton_inf = inf_builder(singleton_data, n_alt, n_ref)
 
     for sample in n_cop.samples:
-        # n_cop.samples[sample]['UMI'] = str(mpd_inf[0][0]) + ";" + str(mpd_inf[0][1]) + ";" + str(mpd_inf[0][2]) + \
-        #                                    ";" + str(mpd_inf[0][3]) + ";" + str(mpd_inf[0][4]) + ";" + mpd_inf[1] + \
-        #                                    ";" + mpd_inf[2] + ";" + mpd_inf[3] + ";" + mpd_inf[4]
-        n_cop.samples[sample]['UUMI'] = str(unmpd_inf[0][0]) + ";" + str(unmpd_inf[0][1]) + \
-                                        ";" + str(unmpd_inf[0][2]) + ";" + str(unmpd_inf[0][3]) + \
-                                        ";" + str(unmpd_inf[0][4]) + ";" + unmpd_inf[1] + ";" + unmpd_inf[2] \
-                                        + ";" + unmpd_inf[3] + ";" + unmpd_inf[4]
-
         n_cop.samples[sample]['UMI'] = "{No_Mutation};{True_Mutation};{FFPE_Artefact};{Unknown};{Deletion};" \
                                        "{Ref_Paired};{Var_Paired};{Ref_Single};{Var_Single}"\
             .format(No_Mutation=mpd_inf[0][0], True_Mutation=mpd_inf[0][1], FFPE_Artefact=mpd_inf[0][2],
                     Unknown=mpd_inf[0][3], Deletion=mpd_inf[0][4], Ref_Paired=mpd_inf[1], Var_Paired=mpd_inf[2],
                     Ref_Single=mpd_inf[3], Var_Single=mpd_inf[4])
+
+        n_cop.samples[sample]['SUMI'] = "{No_Mutation};{True_Mutation};{FFPE_Artefact};{Unknown};{Deletion};" \
+                                       "{Ref_Paired};{Var_Paired};{Ref_Single};{Var_Single}" \
+            .format(No_Mutation=singleton_inf[0][0], True_Mutation=singleton_inf[0][1],
+                    FFPE_Artefact=singleton_inf[0][2], Unknown=singleton_inf[0][3], Deletion=singleton_inf[0][4],
+                    Ref_Paired=singleton_inf[1], Var_Paired=singleton_inf[2], Ref_Single=singleton_inf[3],
+                    Var_Single=singleton_inf[4])
 
         # Checks if any record in the returned dict indicates an FFPE, if so updates the n_fil parameter
     for umi_key in mpd_data:
@@ -78,6 +77,7 @@ def var_extract(bam_lst, rec_pos, var_nuc, ref_nuc, ffpe_b, ext_fun, spl_fun, sp
     """ Function with the purpose of creating a dict based on the directionality and umi-tags of the supplemented
     reads in the bam_lst. Then using said dict to call the pos_hits and ffpe_finder functions to return a dict with
     data regarding positional data and variant types for the variant-record position and the reads aligning to it.
+
     Args:
         :param bam_lst: Input list of BAM-reads aligning to the variant call
         :param rec_pos: The position of the variant in the reference genome
@@ -92,6 +92,10 @@ def var_extract(bam_lst, rec_pos, var_nuc, ref_nuc, ffpe_b, ext_fun, spl_fun, sp
         :return: Returns a dict for mapped and unmapped reads. Each of these dicts containing a single-hits and a
         mate-hits dict. The mate-hits dict in turn contains data regarding if the variant is a mutation, no mutation,
         FFPE-artfefact deletion or N-call. Whereas the single-hits dict contains positional data for reads with no mate.
+        Example dict:
+        mpd_res[umi_key] = {"Single_Hits": Str1_Hits: {}, Str2_Hits:{C,T}, "Mate_Hits": Mutation_Hits": {},
+        "FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0,
+        "Mutation_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}}
 
     Raises:
         :raises KeyError: If a umi is not found within the umi_dict, adds said umi_id to the umi_dict as well as two
@@ -99,12 +103,12 @@ def var_extract(bam_lst, rec_pos, var_nuc, ref_nuc, ffpe_b, ext_fun, spl_fun, sp
         :raises KeyError: Raises a key-error if the requested read/dict_key does not exist
     """
     mpd_dict = {}
-    unmpd_dict = {}
+    singleton_dict = {}
     mpd_b_dict = {}
-    unmpd_b_dict = {}
+    singleton_b_dict = {}
     umi_dict = {}
     mpd_res = {}
-    unmpd_res = {}
+    singleton_res = {}
     try:
         for read in bam_lst:
             umi = ext_fun(read)
@@ -136,10 +140,10 @@ def var_extract(bam_lst, rec_pos, var_nuc, ref_nuc, ffpe_b, ext_fun, spl_fun, sp
                 if str2_lst:
                     mpd_dict["String_1_Hits"] = pos_function.pos_hits(str1_lst, rec_pos)[0]
                     mpd_dict["String_2_Hits"] = pos_function.pos_hits(str2_lst, rec_pos)[0]
-                    unmpd_dict["String_1_Hits"] = pos_function.pos_hits(str1_lst, rec_pos)[1]
-                    unmpd_dict["String_2_Hits"] = pos_function.pos_hits(str2_lst, rec_pos)[1]
+                    singleton_dict["String_1_Hits"] = pos_function.pos_hits(str1_lst, rec_pos)[1]
+                    singleton_dict["String_2_Hits"] = pos_function.pos_hits(str2_lst, rec_pos)[1]
                     mpd_b_dict = base_function.ffpe_finder(mpd_dict, var_nuc, ref_nuc, ffpe_b)
-                    unmpd_b_dict = base_function.ffpe_finder(unmpd_dict, var_nuc, ref_nuc, ffpe_b)
+                    singleton_b_dict = base_function.ffpe_finder(singleton_dict, var_nuc, ref_nuc, ffpe_b)
                 else:
                     str1_ms_hits = pos_function.pos_hits(str1_lst, rec_pos)[0]
                     str1_us_hits = pos_function.pos_hits(str1_lst, rec_pos)[1]
@@ -150,10 +154,10 @@ def var_extract(bam_lst, rec_pos, var_nuc, ref_nuc, ffpe_b, ext_fun, spl_fun, sp
             sing_m_dict = {"String_1_Single": str1_ms_hits, "String_2_Single": str2_ms_hits}
             sing_u_dict = {"String_1_Single": str1_us_hits, "String_2_Single": str2_us_hits}
             mpd_res[umi_key] = {"Single_Hits": sing_m_dict, "Mate_Hits": mpd_b_dict}
-            unmpd_res[umi_key] = {"Single_Hits": sing_u_dict, "Mate_Hits": unmpd_b_dict}
+            singleton_res[umi_key] = {"Single_Hits": sing_u_dict, "Mate_Hits": singleton_b_dict}
     except KeyError as e:
         print("ERROR: The requested key " + str(e) + " does not exist")
-    return [mpd_res, unmpd_res]
+    return [mpd_res, singleton_res]
 
 
 def inf_builder(inp_dict, n_ref, n_alt):
@@ -163,7 +167,7 @@ def inf_builder(inp_dict, n_ref, n_alt):
     The inp_dict is meant to be output from the var_extract function,and is divided into two dicts named
     Single Hits and Mate Hits. The Single-dict contains the molecular support for the reference genome nucleotide
     and the variant nucleotide based on all reads without a mate.
-    The Mate-Hits dicts instead contaisn data regarding the variant-classification, the support for each variant type,
+    The Mate-Hits dicts instead contains data regarding the variant-classification, the support for each variant type,
     and the molecular support for the reference genome nucleotide and the variant nucleotide based on reads with a mate.
 
     Args:
