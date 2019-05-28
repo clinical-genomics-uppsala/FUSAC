@@ -1,11 +1,15 @@
 def base_check(read, rec_pos):
-    """ Checks the variant-record position against the supplemented read and extracts the base belonging to this
-    postion in the read.
+    """ The base\_check function checks the variant-record position against the supplemented read, and then extracts
+    the nucleotide belonging to this position in the read. Returns the nucleotide in the read mapping against
+    the variant-record position
+
     Args:
         :param read: Input read
-        :param rec_pos: Position of the variant in the reference genome
+        :param rec_pos: The position of the called variant in the reference genome
+
     Returns:
-        :return: Returns the base found at read matching the position of the variant in the reference genome
+        :return: Returns the nucleotide in the read mapping against the variant-record position
+
     Raises:
         :raises ValueError: If a ValueError is found, the function returns nothing
     """
@@ -26,21 +30,38 @@ def base_check(read, rec_pos):
         pass
 
 
-def ffpe_finder(base_dict, ref_var, ref_base, ffpe_b):
-    """ Function for classying the UMI variant-type. Alltogether the UMI and its variantrecord position can be
-    classifies as: No mutation, Mutation, FFPE-artefact, Unknown (N-symbol) or Deletion (-). The function takes the
-    str1 and str2 base and compares these to one another to classify the position, and add to the appropriate index.
+def ffpe_finder(cons_dict, var_nuc, ref_nuc, ffpe_b):
+    """ The ffpe\_finder function is made to classify the variant type for paired UMI-reads. All-together the UMI and
+    its variant-record position can be classified as: No mutation, Mutation, FFPE-artefact, Unknown (N) or Deletion (-).
+    The function uses a dict of paired reads containing their consensus nucleotides categorized through their UMI-tag,
+    which is then iterated through for every UMI. It then uses the consensus nucleotide originating from string 1 and
+    string 2 to classify the UMI through comparing these to one another. If the two consensus nucleotides are equal
+    to one another and furthermore equal to the base in the reference genome, the UMI is determined to be "No mutation".
+    If the two consensus nucleotides are equal to one another and furthermore equal to the variant in the
+    variant-record, they are instead deemed to be a "True mutation". In default mode, a FFPE classification only occurs
+    if there is a mismatch between the two consensus nucleotides, if one of the consensus nucleotides is equal to the
+    variant in the variantrecord, and finally if the mismatch is of a C:T, T:C or G:A, A:G type. Alternatively, if the
+    flag "ffpe_b" has been called with the input "all", the function instead classifies any mismatch between the
+    consensus nucleotides for string 1 and string 2 as a FFPE-artefact. If any of the consensus nucleotides are equal
+    to N or -. the UMi is instead deemed to be "Unknown" or "Deleteion" respectively.
+    After a UMI is classified, a counter is added to, and the UMi is stored within a dict named after the variant type.
+    Once the algorithm has iterated through every UMI within the cons_dict, it creates a new dict containing all
+    variant-type dicts as well as their molecular support, which is then returned
+
     Args:
-        :param base_dict: Dict containing Str1 and Str2 with their representative bases
-        :param ref_var: The variant-record variant base, this is always aligned to the positive strand
-        :param ref_base: The variant-record reference genome base, always aligned to the  positive strand
+        :param cons_dict: Dict containing the consensus nucleotides for String 1 and String 2,
+        classified through their UMI-tag
+        :param var_nuc: The nucleotide called in the variant-record
+        :param ref_nuc: The nucleotide found in the reference genome at the variant-call position
         :param ffpe_b: Parameter determining if all bases should be included for FFPE-classification, or just
         C>T:G>A
+
     Returns:
         :return: Returns a dict with separate dicts for every possible variant type, which in turns contains the
         String_1 and String_2 base for this position. Also returns an index for the variant type.
+
     Raises:
-        :raises KeyError: Raises a key-error if somehow, there are not two read-bases to compare
+        :raises KeyError: Raises a key-error if there are not two read-bases to compare
     """
     var_dict = {}
     ffpe_dict = {}
@@ -57,14 +78,14 @@ def ffpe_finder(base_dict, ref_var, ref_base, ffpe_b):
     del_sym = "-"
     try:
         # Retrieves the forward and reverse base hits for the key value
-        str1_bas = base_dict["String_1_Hits"]
-        str2_bas = base_dict["String_2_Hits"]
+        str1_bas = cons_dict["String_1_Hits"]
+        str2_bas = cons_dict["String_2_Hits"]
 
-        if str1_bas == str2_bas and str1_bas == ref_base:
+        if str1_bas == str2_bas and str1_bas == ref_nuc:
             ref_dict = {"String_1": str1_bas, "String_2": str2_bas}
             ref_ind += 1
         # If both positions contains the variant, it is added to the mut_dict
-        elif str1_bas == str2_bas and str1_bas == ref_var:
+        elif str1_bas == str2_bas and str1_bas == var_nuc:
             mut_dict = {"String_1": str1_bas, "String_2": str2_bas}
             mut_ind += 1
         # If either of the positions are equal to an N or a deletion, they are deemed as a N or Del respectively
@@ -77,29 +98,24 @@ def ffpe_finder(base_dict, ref_var, ref_base, ffpe_b):
         elif str1_bas != str2_bas:
             if ffpe_b == 'standard':
                 # Checks the b_trans parameter, if standard only "FFPE" instances are classified as FFPE
-                # In order:
-                # Hydrolytic deamination causes a C>T or G>A change due to the loss of the amino group
+                # Hydrolytic deamination causes C:G>T:A changes due to hydrolytic deamination of cytosine
                 # PySAM's get_forward_sequence returns the reverse complement for any reverse reads
-                # Deamination of C-G [C-C] > T-G [T-C] , returned as T-C, as G is returned as C by PySAM
-                # Deamination of G-C [G-G] > G-T [G-A] , returned as G-A, as T is returned as A by PySAM
-                # Deamination of C-G [C-C] > C-A [C-T], returned as C-T, as A is returned as T by PySAM
-                # Deamination of G-C [G-G] > A-C [A-G], returned as A-G, as C is returned as G by PySAM
-                if str1_bas == 'T' and str2_bas == 'C' or \
+
+                # Deamination of C to U [U-G] > [U-A], [C-G] > [T-A], [C,G],
+                # returned as [T-T],[C,C] as A is returned as T by PySAM, ie: C vs. T
+                # Deamination of C to U [G-U] > [A-U], [G-C] > [A-T], [G-C],
+                # returned as [A-A],[G,G] as T is returned as A by PySAM, ie G vs. A
+                # Deamination of methylated C to T [T-G] > [T-A],[C-G],
+                # returned as [T-T],[C-C], as A is returned as T by PySAM, ie: C vs.T
+                # Deamination of methylated C to T [G-T] > [A-T],[G-C],
+                # returned as [A-A],[G-G] as T is returned as A by PySAM, ie: G vs. A
+
+                if str1_bas == 'C' and str2_bas == 'T' or \
+                        str1_bas == 'T' and str2_bas == 'C' or \
                         str1_bas == 'G' and str2_bas == 'A' or \
-                        str1_bas == 'C' and str2_bas == 'T' or \
                         str1_bas == 'A' and str2_bas == 'G':
-                    print("New UMI")
-                    print("Ref: " + ref_base)
-                    print("Var: " + ref_var)
-                    print("str1: " + str1_bas)
-                    print("str2: " + str2_bas)
                     # Checks to see if any of the bases are equal to the variant call
-                    if str1_bas == ref_var or str2_bas == ref_var:
-                        print("New FFPE")
-                        print("Ref: " + ref_base)
-                        print("Var: " + ref_var)
-                        print("str1: " + str1_bas)
-                        print("str2: " + str2_bas)
+                    if str1_bas == var_nuc or str2_bas == var_nuc:
                         ffpe_dict = {"String_1": str1_bas, "String_2": str2_bas}
                         ffpe_ind += 1
                     else:
