@@ -84,10 +84,10 @@ def main():
         ext_fun = pos_function.rx_ext
         spl_cha = ""
 
-    if spl_cha == "+":
-        spl_fun = pos_function.cha_splt
-    else:
+    if spl_cha == "":
         spl_fun = pos_function.hlf_splt
+    else:
+        spl_fun = pos_function.cha_splt
 
     res_que = queue.Queue()
     vcf_file = pysam.VariantFile(args['inputVCF'], "r")
