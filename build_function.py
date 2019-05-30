@@ -1,6 +1,9 @@
 import pos_function
 import base_function
 import count_function
+import pandas as pd
+import os
+import shutil
 
 
 def vcf_extract(record, bam_file, ffpe_b, ext_fun, spl_fun, spl_cha):
@@ -58,7 +61,7 @@ def vcf_extract(record, bam_file, ffpe_b, ext_fun, spl_fun, spl_cha):
                     Ref_Single=mpd_inf[3], Var_Single=mpd_inf[4])
 
         n_cop.samples[sample]['SUMI'] = "{No_Mutation};{True_Mutation};{FFPE_Artefact};{Unknown};{Deletion};" \
-                                       "{Ref_Paired};{Var_Paired};{Ref_Single};{Var_Single}" \
+                                        "{Ref_Paired};{Var_Paired};{Ref_Single};{Var_Single}" \
             .format(No_Mutation=singleton_inf[0][0], True_Mutation=singleton_inf[0][1],
                     FFPE_Artefact=singleton_inf[0][2], Unknown=singleton_inf[0][3], Deletion=singleton_inf[0][4],
                     Ref_Paired=singleton_inf[1], Var_Paired=singleton_inf[2], Ref_Single=singleton_inf[3],
@@ -160,43 +163,148 @@ def var_extract(bam_lst, rec_pos, var_nuc, ref_nuc, ffpe_b, ext_fun, spl_fun, sp
     return [mpd_res, singleton_res]
 
 
-def inf_builder(inp_dict, n_ref, n_alt):
-    """ Uses the output from pos_checker to generate a list containing strings representing the data found for each
-    record, more specifically support for each variant-type, as well as the support for the reference and variant
-    call for str1 and str2.
-    The inp_dict is meant to be output from the var_extract function,and is divided into two dicts named
-    Single Hits and Mate Hits. The Single-dict contains the molecular support for the reference genome nucleotide
-    and the variant nucleotide based on all reads without a mate.
-    The Mate-Hits dicts instead contains data regarding the variant-classification, the support for each variant type,
-    and the molecular support for the reference genome nucleotide and the variant nucleotide based on reads with a mate.
+def inf_builder(inp_dict, ref_nuc, var_nuc):
+    """ The inf\_builder function uses the output from var\_extract to generate a list containing strings representing
+    the data found for each record, more specifically support for each variant-type, as well as the support for the
+    reference and variant call for string 1 and string 2.
+    The inp\_dict is meant to be the output from the var_extract function,and is divided into two dicts named
+    Single Hits and Mate Hits. The Single-dict contains the molecular support for the reference genome nucleotide and
+    the variant nucleotide based on all reads without a mate. The Mate-Hits dicts instead contains data regarding the
+     variant-classification, the support for each variant type,and the molecular support for the reference genome
+    nucleotide and the variant nucleotide based on reads with a mate.
+    Returns a list containing the support for each variant-type, as well as the support for the reference and variant
+    call for string1 and string 2
 
     Args:
         :param inp_dict: Input dict dict for mapped and unmapped reads. Each of these dicts containing a single-hits
         and a mate-hits dict. The mate-hits dict in turn contains data regarding if the variant is a mutation,
         no mutation, FFPE-artfefact deletion or N-call. Whereas the single-hits dict contains positional data for reads
         with no mate.
-        :param n_ref: Nucletoide in the reference genome for the variant-record variant position
-        :param n_alt: Variant for the variant-record variant position
+        Example dict for a FFPE-artefact:
+        inp_dict = umi_key: {"Single_Hits": Str1_Hits: {}, Str2_Hits:{C,T}, "Mate_Hits": Mutation_Hits": {},
+        "FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0,
+        "Mutation_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}}
+        :param ref_nuc: Nucletoide in the reference genome for the variant-record variant position
+        :param var_nuc: Variant nucleotide for the variant-record variant-call
 
     Returns:
         :return: Returns a list containing the support for each variant-type, as well as the support for the reference
         and variant call for str1 and str2
+        Example output dict for one FFPE artefact:
+            [0;0;1;0;0;1;0;1;0;0;0;0;0]
     """
     # Calls the sup_count function to obtain the support for each nucleotide called
-    ref_sup = count_function.nuc_count(inp_dict, n_ref)
-    alt_sup = count_function.nuc_count(inp_dict, n_alt)
+    ref_sup = count_function.nuc_count(inp_dict, ref_nuc)
+    alt_sup = count_function.nuc_count(inp_dict, var_nuc)
     type_sup = count_function.mol_count(inp_dict)
     ref_p = None
     ref_s = None
     var_p = None
     var_s = None
 
-    for var in n_alt:
+    for var in var_nuc:
         var_p = str(alt_sup["Paired"]["String_1"][var]) + ";" + str(alt_sup["Paired"]["String_2"][var])
         var_s = str(alt_sup["String_1_Single"][var]) + ";" + str(alt_sup["String_2_Single"][var])
 
-    for ref in n_ref:
+    for ref in ref_nuc:
         ref_p = str(ref_sup["Paired"]["String_1"][ref]) + ";" + str(ref_sup["Paired"]["String_2"][ref])
         ref_s = str(ref_sup["String_1_Single"][ref]) + ";" + str(ref_sup["String_2_Single"][ref])
 
     return [type_sup, ref_p, var_p, ref_s, var_s]
+
+
+def csv_maker(vcf_file, ffpe_b):
+    """ The csv\_maker function generates an output CSV-file based on the fumic output containing data for each
+    variant-record. More specifically regarding the molecular support for the reference genome nucletoide,
+    the variant-call nucleotide,the number of FFPE-calls, the overall frequency of FFPE-artefacts for each
+    variant-record, and the type of mismatch for the variant-record. Through extracting this info and calling the
+    csv\_record\_maker function, it populates a series of list that are then written to the new csv.
+
+    Args:
+        :param vcf_file: The output VCF file generated by fumic
+        :param ffpe_b: Optional input argument controlling which mismatches to consider for FFPE-classification
+
+    Returns:
+        :return: Generates a .csv file with statistics to be used with the fumic_visualize.r function
+    """
+
+    ffpe_ind = 0
+    ind = 0
+    var_lst = []
+    ref_lst = []
+    ffpe_lst = []
+    perc_lst = []
+    pos_lst = []
+    change_lst = []
+    for record in vcf_file.fetch():
+        try:
+            r_f = record.filter
+            for f_val in r_f:
+                if f_val == "FFPE":
+                    if ffpe_b == "all":
+                        ffpe_ind += 1
+                        csv_record_maker(pos_lst, change_lst, var_lst, ffpe_lst, ref_lst, perc_lst, record)
+                        pos_lst.append(str(record.pos))
+                        change_lst.append(str(record.ref) + ">" + str(list(record.alts)[0]))
+                    else:
+                        if str(record.ref) == 'G' and str(list(record.alts)[0]) == 'A' or \
+                                str(record.ref) == 'C' and str(list(record.alts)[0]) == 'T':
+                            ffpe_ind += 1
+                            csv_record_maker(pos_lst, change_lst, var_lst, ffpe_lst, ref_lst, perc_lst, record)
+                else:
+                    ind += 1
+        except KeyError as e:
+            print("ERROR: The requested filter tag " + str(e) + " does not exist")
+
+    # If the directory "Fumic_Stats" does not yet exist, creates the directory
+    if os.path.isdir("Fumic_Stats"):
+        shutil.rmtree('Fumic_Stats')
+        os.makedirs('Fumic_Stats')
+    else:
+        os.makedirs('Fumic_Stats')
+    # Prints out the most important statistics to a .csv file to be used with R
+    pd.DataFrame({'Ref': ref_lst, 'Var': var_lst, 'FFPE': ffpe_lst, 'Perc': perc_lst,
+                  'BaseChange': change_lst}).to_csv("Fumic_Stats/fumic_stats.csv")
+
+
+def csv_record_maker(pos_lst, change_lst, var_lst, ffpe_lst, ref_lst, perc_lst, record):
+    """ The csv_record_maker function extracts information from a FFPE-artefact tagged record extracted the output from fumic.py, more specifically
+    from the "samples field. Generates data regarding the molecular support for the nucleotide in the reference genome
+    for the variant-call position, the variant nucleotide in the variant-record, the number of FFPE-artefacts found,
+    the number of unknowns found, the number of deletions found, as well as the percentile ratio of FFPE artefacts in
+    the variant-record. The generated data is then used to populate the lists used as input.
+
+    Args:
+        :param pos_lst: List containing the position for studied variant-records
+        :param change_lst: List containing the mismatch for studied variant-records
+        :param ref_lst: List containing the molecular support for the reference genome nucleotide for each studied
+        variant call position respectively
+        :param var_lst: List containing the molecular support for the variant-record variant-call position for each
+        studied variant call position respectively
+        :param ffpe_lst: List containing the molcular support for FFPE-artefacts on the variant-record variant-call
+         position for each studied variant call position respectively
+        :param perc_lst: List containing the percentual ratio of molecules support FFPE-artefacts to the total
+        number of molecules studied for each studied variant call position respectively
+        :param record: The variant-record of interest
+    """
+    rec_samp = record.samples
+    for sample in rec_samp:
+        perc_rat = 0
+
+        samp_dat = list(rec_samp[sample]['UMI'])
+        rec_str = samp_dat[0]
+        rec_splt = rec_str.split(';')
+
+        rec_var = int(rec_splt[1])
+        rec_ffpe = int(rec_splt[2])
+        rec_ref = int(rec_splt[0])
+        rec_n = int(rec_splt[3])
+        rec_del = int(rec_splt[4])
+        pos_lst.append(str(record.pos))
+        change_lst.append(str(record.ref) + ">" + str(list(record.alts)[0]))
+        var_lst.append(rec_var)
+        ffpe_lst.append(rec_ffpe)
+        ref_lst.append(rec_ref)
+        if (rec_ref + rec_var + rec_ffpe + rec_n + rec_del) != 0:
+            perc_rat = (rec_ffpe / (rec_ref + rec_var + rec_ffpe + rec_n + rec_del)) * 100
+        perc_lst.append(perc_rat)

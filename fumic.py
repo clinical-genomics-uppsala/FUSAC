@@ -68,8 +68,16 @@ def main():
     parser.add_argument('-up', '--umiPosition', help='UMI-Position: Default: Query-Name (qrn),'
                                                      ' Alternative: RX-tag based (rx)', required=False, default="qrn")
     parser.add_argument('-sc', '--splitCharacter',
-                        help='Split character for the UMI-tag, qrn default = +, tgg default = "" for splitting in half',
+                        help='Split character for the UMI-tag. Default = +,  Alternative: Any, '
+                             'use "" for splitting the umi in half',
                         required=False, default="+")
+    parser.add_argument('-cf', '--csvFile', help='Generate an output CSV file based on the fumic-output containing '
+                                                 'data for each variant-record regarding the molecular support for '
+                                                 'the reference genome nucletoide, the variant-call nucleotide, the '
+                                                 'number of FFPE-calls, the overall frequency of FFPE-artefacts for '
+                                                 'each variant-record, and the type of mismatch for the variant-record.'
+                                                 ' Default: yes, Alternative: no',
+                        required=False, default="yes")
 
     args = vars(parser.parse_args())
     thr_que = deque([0]*int(args["queueSize"]))
@@ -77,6 +85,7 @@ def main():
     ffpe_b = str(args["ffpeBases"])
     umi_pos = str(args["umiPosition"])
     spl_cha = str(args["splitCharacter"])
+    cf_arg = str(args["csvFile"])
 
     if umi_pos == "qrn":
         ext_fun = pos_function.qrn_ext
@@ -120,6 +129,13 @@ def main():
     # Writes the consumer output to the vcf-file
     while not res_que.empty():
         n_vcf.write(res_que.get())
+        if res_que.empty():
+            n_vcf.close()
+
+    if cf_arg == "yes":
+        with pysam.VariantFile("fumic_output.vcf", "r") as fum_out:
+            build_function.csv_maker(fum_out, ffpe_b)
+
     t_end = time.time()
     print("Total runtime: " + str(t_end - t_start) + "s")
 
