@@ -59,7 +59,7 @@ def qrn_ext(read):
     Returns:
         :return: A dict containing the umi-tag
     """
-    return read.query_name.split("_")[-1]
+    return read.query_name.split("UMI_")[-1]
 
 
 def rx_ext(read):
@@ -103,7 +103,7 @@ def hlf_splt(umi_str, char):
     return umi_str[:len(umi_str) // 2], umi_str[len(umi_str) // 2:]
 
 
-def pos_hits(inp_lst, record_pos):
+def pos_hits(inp_dict, record_pos):
     """ The pos\_hits function selects the most prominent base for a UMI of interest. The function works through
     iterating through all query-names in the input list and determines if the query-name has a mate or not.
     The function then calls the base\_check function to retrieve the base matching the variant-record position for each
@@ -113,12 +113,16 @@ def pos_hits(inp_lst, record_pos):
     reads belonging to a UMI. Returns the consensus nucleotide
 
     Args:
-        :param inp_lst: Input list of reads categorized by their query-name
+        :param inp_dict: Input dict of reads categorized by their query-name
+        Example dict:
+        input_dict = {example_name_UMI_ACTGCA+ACTGCA: {read1, read2}, example_2_name_UMI_TGACGT+TGACGT: {read2}}
         :param record_pos: The position of the called variant in the reference genome
 
     Returns:
         :return: Returns a dict with mapped and unmapped reads with the most prominent base for the
         reads belonging to a UMI
+        Example dict:
+        cons_dict = {UMI_tag_1: C, UMI_tag_2: T}
 
     Raises:
         :raises Warning: Raises a warning if a query-name has more then 2 reads belonging to it. If this happens it
@@ -126,13 +130,13 @@ def pos_hits(inp_lst, record_pos):
     """
     # Loops through each key and its respective reads to extract their variant position data and then counts
     # The no. hits for each respective letter for this position
-    uread_base = None
+    singleton_base = None
     read_base = None
     mpd_dict = Counter({"A": 0, "T": 0, "G": 0, "C": 0, "N": 0, "-": 0})
-    unmpd_dict = Counter({"A": 0, "T": 0, "G": 0, "C": 0, "N": 0, "-": 0})
+    singleton_dict = Counter({"A": 0, "T": 0, "G": 0, "C": 0, "N": 0, "-": 0})
 
     # Iterates through every query_name entry within the given UMI-key for the direction
-    for query_name, read in inp_lst.items():
+    for query_name, read in inp_dict.items():
         # If two entries exist for the same query name (ie: forward and reverse strand), calls the base_check function
         # For both reads, then checks if these are identical or if they are different. If they are different, skips the
         # Query-name pair as this  indicates some form of error, as the same molecule should have a identical base
@@ -146,7 +150,7 @@ def pos_hits(inp_lst, record_pos):
             # Checks if the read simply is alone as its mate did not align,
             # If it lacks a mate it is categorized as unmapped.
             if read[0].mate_is_unmapped:
-                uread_base = base_function.base_check(read[0], record_pos)
+                singleton_base = base_function.base_check(read[0], record_pos)
             else:
                 read_base = base_function.base_check(read[0], record_pos)
         else:
@@ -158,13 +162,13 @@ def pos_hits(inp_lst, record_pos):
             for base in mpd_dict.keys():
                 if base == read_base:
                     mpd_dict[base] += 1
-        elif uread_base:
-            for base in unmpd_dict.keys():
-                if base == uread_base:
-                    unmpd_dict[base] += 1
+        elif singleton_base:
+            for base in singleton_dict.keys():
+                if base == singleton_base:
+                    singleton_dict[base] += 1
     # Selects the most prominent base (the consensus nucleotide) in the unmapped/mapped dict
-    cons_bas = max(mpd_dict, key=mpd_dict.get)
-    unmpd_bas = max(unmpd_dict, key=unmpd_dict.get)
+    cons_nuc = max(mpd_dict, key=mpd_dict.get)
+    singleton_nuc = max(singleton_dict, key=singleton_dict.get)
     # Returns a list of the mapped and unmapped most prominent base
-    cons_lst = [cons_bas, unmpd_bas]
+    cons_lst = [cons_nuc, singleton_nuc]
     return cons_lst
