@@ -59,7 +59,7 @@ def qrn_ext(read):
     Returns:
         :return: A dict containing the umi-tag
     """
-    return read.query_name.split("UMI_")[-1]
+    return read.query_name.split("_")[-1]
 
 
 def rx_ext(read):
