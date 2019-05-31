@@ -36,7 +36,7 @@ The final input to consider is csvFile (-cf) which controls whether or not FUMIC
 
 ```
 
-| Flag  | Name | Function | Required |  Default | Alternative|
+| Flag | Name | Function | Required | Default | Alternative |
 | --- | --- | --- | --- | --- | --- |
 | -b | inputBAM | Input BAM file path | Yes | N/A | Any |
 | -v | inputVCF | Input VCF file path | Yes | N/A | Any |
