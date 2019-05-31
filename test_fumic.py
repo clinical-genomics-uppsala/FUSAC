@@ -36,6 +36,7 @@ class TestCase(unittest.TestCase):
         self.sing_dict = {"String_1_Single": {}, "String_2_Single": {}}
         self.ffpe_b_1 = "standard"
         self.ffpe_b_2 = "all"
+        self.spl_cha_1 = "+"
         self.ext_fun_1 = pf.qrn_ext
         self.ext_fun_2 = pf.rx_ext
         self.spl_fun_1 = pf.cha_splt
