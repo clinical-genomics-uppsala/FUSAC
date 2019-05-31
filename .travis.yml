@@ -6,7 +6,8 @@ python:
 install:
   - sudo apt-get update
   - pip install pytest pysam
+  - pip install pandas
 script:
   # run the workflow
   # put a test case into the subfolder .test (e.g., use https://github.com/snakemake-workflows/ngs-test-data as a submodule)
-  - python -m fumic_test
+  - python -m fumic_unit_test
