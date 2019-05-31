@@ -45,6 +45,20 @@ The final input to consider is csvFile (-cf) which controls whether or not FUMIC
 | -sc | splitCharacter | Split character for the UMI-tag | No | + | Any |
 | -cf | csvFile | Generate an output CSV file | No | yes | no |
 
+#### Example 1
+We wish classify all mismatches belonging to the file example_bam using the example_vcf file. The Reads in the example\_bam file have their UMI-tag stored in the query-name, which is separated by the character "_". The program is being run on a laptop with 4 cores, and we wish to limit the queue to 9 variant-records. 
+
+```
+python fumic.py -b example_bam.bam -v example_vcf.vcf -t 3 -qs 9 -b all -sc _
+```
+
+#### Example 2
+We wish classify only C:T>G:A artefacts belonging to the file example\_bam using the example_vcf file. The Reads in the example\_bam file have their UMI-tag stored in the RX-tag, and are not separated by any character. The program is being run on a cluster with 16 cores. We do not wish to limit the queue, but rather have it infinite. Furthermore, we do not wish to generate a CSV file.
+
+```
+python fumic.py -b example_bam.bam -v example_vcf.vcf -t 15 -up rx -sc "" -cf no
+```
+
 ## Functions
 
 ### 
