@@ -35,6 +35,7 @@ The default FFPE-classification mode focuses solely on C:G$>$T:A artefacts, howe
 The final input to consider is csvFile (-cf) which controls whether or not FUMIC generates an output CSV file based on the fumic-output. This CSV generates a separate row for each variant-record with columns for the molecular support for the reference genome nucletoide, the variant-call nucleotide, the number of FFPE-calls, the overall frequency of FFPE-artefacts for each variant-record, and the type of mismatch for the variant-record. The default setting is to generate the CSV, but if this is not required the function can be turned off using the input  "no".
 
 ```
+
 | Flag  | Name | Function | Required |  Default | Alternative|
 | --- | --- | --- | --- | --- | --- |
 | -b | inputBAM | Input BAM file path | Yes | N/A | Any |
@@ -42,6 +43,7 @@ The final input to consider is csvFile (-cf) which controls whether or not FUMIC
 | --- | --- | --- | --- | --- | --- |
 | --- | --- | --- | --- | --- | --- |
 | --- | --- | --- | --- | --- | --- |
+
 ```
 
 ## Functions
