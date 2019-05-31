@@ -38,9 +38,12 @@ The final input to consider is csvFile (-cf) which controls whether or not FUMIC
 | --- | --- | --- | --- | --- | --- |
 | -b | inputBAM | Input BAM file path | Yes | N/A | Any |
 | -v | inputVCF | Input VCF file path | Yes | N/A | Any |
-| --- | --- | --- | --- | --- | --- |
-| --- | --- | --- | --- | --- | --- |
-| --- | --- | --- | --- | --- | --- |
+| -t | threads | No. threads to run the program | No | 1 | Any integer |
+| -qs | queueSize | Threading deque size | No | Infinite | Any |
+| -fb | ffpeBases | Bases used for FFPE classification | No | C:T>G:A | all |
+| -up | umiPosition | Location of the UMI-tag in a read | No | Query-name (qrn) | Rx-tag (rx) |
+| -sc | splitCharacter | Split character for the UMI-tag | No | + | Any |
+| -cf | csvFile | Generate an output CSV file | No | yes | no |
 
 ## Functions
 
