@@ -59,6 +59,32 @@ We wish classify only C:T>G:A artefacts belonging to the file example\_bam using
 python fumic.py -b example_bam.bam -v example_vcf.vcf -t 15 -up rx -sc "" -cf no
 ```
 
+### Interpreting FUMIC's output
+The output from FUMIC can be easily extracted for analysis, or read directly to form a quick opinion. In the following example one modified variant-record is presented.
+
+| Field | Value |
+| --- | --- |
+| CHROM | chr1 |
+| POS | 4367323 |
+| ID | rs1490413 |
+| REF | G |
+| ALT | A |
+| QUAL | . |
+| FILTER | FFPE |
+| INFO | ... |
+| FORMAT | GT:AD:AF:DP:UMI:SUMI |
+| GT:AD:AF:DP: | 0/1:571,632:0.527:1203: |
+| UMI | 235;313;15;0;0;313;328;250;235;272;322;306;256: |
+| SUMI | 0;563;0;0;0;563;563;0;0;570;571;4;7 |
+
+In the example variant-record above, we see that the variant-caller initially identified the record as a mutation from G to A based on the "REF" and "ALT" fields. We then see in the "Filter" field that FUMIC have deemed this to be a record with molecular support for a FFPE artefact. 
+
+Further investigation in the "FORMAT" field, more specifically the two fields UMI and SUMI added by FUMIC shows us that the molecular support for no mutation is 235, the support for a true mutation is 313 and the support for a FFPE-artefacts is 15. The molecular support for a deletion or an unknown is deemed to be 0. 
+
+We can then further identify the molecular support for the reference nucleotide G on string 1 for paired reads as 313, and on string 2 328. The support for the variant nucleotide A on string 1 for paired reads is deemed to be 250, and on string 2 235. We can quickly see that this score is consistent with the 15 FFPE-artefact classifications that were found by FUMIC. For paired reads without their mate the molecular support for the reference nucleotide is  272 on string 1 and 322 on string 2. And the support for the variant nucleotide is 306 on string 1, and 256 on string 2.
+
+To summarize, we can see that for position 4367323 15 molecules support an FFPE artefact. However, as 313 molecules support a true mutation, this specific position is unlikely to be a true FFPE-artefact, and thus these results are more likely to be caused by some other factor. 
+
 ## Functions
 
 ### 
