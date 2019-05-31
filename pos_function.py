@@ -79,6 +79,11 @@ def cha_splt(umi_str, char):
     """ The cha\_splt function splits the umi\_string based on the split-character argument. Returns a list containing
      the umi-tag split into two components.
 
+    >>> cha_splt("ACTACTA+GCTGCTG", "+")
+    '[ACTACTA, GCTGCTG]'
+    >>> cha_splt("ACTACTA_GCTGCTG", "_")
+    '[ACTACTA, GCTGCTG]'
+
         Args:
             :param umi_str: A string representing the umi-tag to be split
             :param char: Character to split the umi-string by
@@ -93,6 +98,9 @@ def hlf_splt(umi_str, char):
     """ The hlf_splt function splits the umi_string in half based on its length. Returns a list containing the umi-tag
     split into two components.
 
+     >>> hlf_splt("ACTACTAGCTGCTG", "")
+    '[ACTACTA, GCTGCTG]'
+
     Args:
         :param umi_str: A string representing the umi-tag to be split
         :param char: Character to split the umi-string by (not used but required by the function call)
@@ -100,7 +108,8 @@ def hlf_splt(umi_str, char):
     Returns:
         :return: A dict containing the umi-tag split in two
     """
-    return umi_str[:len(umi_str) // 2], umi_str[len(umi_str) // 2:]
+    tgg = umi_str[:len(umi_str) // 2], umi_str[len(umi_str) // 2:]
+    return list(tgg)
 
 
 def pos_hits(inp_dict, record_pos):
@@ -132,6 +141,8 @@ def pos_hits(inp_dict, record_pos):
     # The no. hits for each respective letter for this position
     singleton_base = None
     read_base = None
+    cons_nuc = None
+    singleton_nuc = None
     mpd_dict = Counter({"A": 0, "T": 0, "G": 0, "C": 0, "N": 0, "-": 0})
     singleton_dict = Counter({"A": 0, "T": 0, "G": 0, "C": 0, "N": 0, "-": 0})
 
@@ -166,9 +177,11 @@ def pos_hits(inp_dict, record_pos):
             for base in singleton_dict.keys():
                 if base == singleton_base:
                     singleton_dict[base] += 1
-    # Selects the most prominent base (the consensus nucleotide) in the unmapped/mapped dict
-    cons_nuc = max(mpd_dict, key=mpd_dict.get)
-    singleton_nuc = max(singleton_dict, key=singleton_dict.get)
+    # Selects the most prominent base (the consensus nucleotide) in the unmapped/mapped dict if the dict have any values
+    if max(mpd_dict.values()) > 0:
+        cons_nuc = max(mpd_dict, key=mpd_dict.get)
+    if max(singleton_dict.values()) > 0:
+        singleton_nuc = max(singleton_dict, key=singleton_dict.get)
     # Returns a list of the mapped and unmapped most prominent base
     cons_lst = [cons_nuc, singleton_nuc]
     return cons_lst
