@@ -30,5 +30,5 @@ The first assumption is necessary due to FUMIC's algorithm working in a classify
 FUMIC comes supplemented with a test_fumic.py function which contains unit-tests for FUMIC. These can be easily run through Travis, or manually through the terminal.
 
 ```
-python fumic_test.py
+python test_fumic.py
 ```
