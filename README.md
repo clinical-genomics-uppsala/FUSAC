@@ -126,7 +126,7 @@ The vcf_extract function uses the supplemented variant-record to extract all rea
 | spl_cha | Character used for splitting the UMI-tag |
 
 ### var_extract
-he var\_extract function first calls the umi_maker function which creates a dict based on the directionality and umi-tags of the supplemented reads in the bam_lst. This dict is then used to call the pos_hits function which will return a dict of consensus nucleotides for each UMI. For paired reads (ie: exists on both string 1 and string 2 for a UMI) the output from the pos_hits function is then used to call the ffpe_finder function which returns a dict containing the variant type for eachUMI along with the molecular support for each variant type. The pos_checker function returns a dict with data regarding the support for each variant type on the variant-record position, as well as the nucleotides present for each variant with respect to their UMI.
+The var_extract function first calls the umi_maker function which creates a dict based on the directionality and umi-tags of the supplemented reads in the bam_lst. This dict is then used to call the pos_hits function which will return a dict of consensus nucleotides for each UMI. For paired reads (ie: exists on both string 1 and string 2 for a UMI) the output from the pos_hits function is then used to call the ffpe_finder function which returns a dict containing the variant type for eachUMI along with the molecular support for each variant type. The pos_checker function returns a dict with data regarding the support for each variant type on the variant-record position, as well as the nucleotides present for each variant with respect to their UMI.
 
 | Input | Function |
 | --- | --- |
@@ -144,7 +144,156 @@ he var\_extract function first calls the umi_maker function which creates a dict
 | Dict | Structure |
 | --- | --- |
 | Input | Example list: bam_lst = [read_1, read_2 ... ] |
-| Output | Example dict: mpd_res[umi_key] = {"Single_Hits": Str1_Hits: {}, Str2_Hits:{C,T}, "Mate_Hits": Mutation_Hits": {}, "FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0, "Mutation_Support": 0, \\ "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0 |
+| Output | Example dict: mpd_res[umi_key] = {"Single_Hits": Str1_Hits: {}, Str2_Hits:{C,T}, "Mate_Hits": Mutation_Hits": {}, "FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0, "Mutation_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0 |
+
+### inf_builder
+The inf_builder function uses the output from var_extract to generate a list containing strings representing the data found for each record, more specifically support for each variant-type, as well as the support for the reference and variant call for string 1 and string 2.
+
+The inp_dict is meant to be the output from the var_extract function,and is divided into two dicts named Single Hits and Mate Hits. The Single-dict contains the molecular support for the reference genome nucleotide and the variant nucleotide based on all reads without a mate. The Mate-Hits dicts instead contains data regarding the variant-classification, the support for each variant type,and the molecular support for the reference genome nucleotide and the variant nucleotide based on reads with a mate.
+
+Returns a list containing the support for each variant-type, as well as the support for the reference and variant call for string 1 and string 2
+
+| Input | Function |
+| --- | --- |
+| read | Read of interest
+| inp_dict |Input dict dict for mapped and unmapped reads. Each of these dicts containing a single-hits and a mate-hits dict. The mate-hits dict in turn contains data regarding if the variant is a mutation,  no mutation, FFPE-artfefact deletion or N-call. Whereas the single-hits dict contains positional data for reads with no mate |
+| ref_nuc | Nucleotide in reference genome for the variant-record variant position |
+| var_nuc | Variant nucleotide for the variant-record variant-call |
+
+| Dict | Structure |
+| --- | --- |
+| Input | Example dict for a FFPE artefact: inp_dict = umi_key: {"Single_Hits": Str1_Hits: {}, Str2_Hits:{C,T}, "Mate_Hits": Mutation_Hits": {},"FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0, "Mutation_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}} |
+| Output | Example output list for one FFPE artefact: [0;0;1;0;0;1;0;1;0;0;0;0;0] |
+
+### csv_maker
+The csv_maker function generates an output CSV-file based on the fumic output containing data for each
+variant-record. More specifically regarding the molecular support for the reference genome nucleotide, the variant-call nucleotide,the number of FFPE-calls, the overall frequency of FFPE-artefacts for each variant-record, and the type of mismatch for the variant-record. Through extracting this info and calling the csv_record_maker function, it populates a series of list that are then written to the new CSV.
+
+| Input | Function |
+| --- | --- |
+| read | Read of interest |
+| vcf_file | The output VCF file generated by fumic |
+| ref_nuc | Nucleotide in reference genome for the variant-record variant position |
+| ffpe_b | Optional input argument controlling which mismatches to consider for FFPE-classification |
+
+### csv_record_maker
+The csv_record_maker extracts information from a FFPE-artefact tagged record extracted the output from fumic.py, more specifically from the "samples field. Generates data regarding the molecular support for the nucleotide in the reference genome for the variant-call position, the variant nucleotide in the variant-record, the number of FFPE-artefacts found, the number of unknowns found, the number of deletions found, as well as the percentile ratio of FFPE artefacts in the variant-record. The generated data is then used to populate the lists used as input.
+
+| Input | Function |
+| --- | --- |
+| read | Read of interest
+| pos_lst| List containing the position for records |
+| change_lst | List containing the mismatch for studied variant-records |
+| ref_lst | List containing the molecular support for the reference genome nucleotide \\ for each studied variant call position respectively |
+| var_lst | List containing the molecular support for the variant-record \\ variant-call position for each studied variant call position respectively |
+| ffpe_lst | List containing the molcular support for FFPE-artefacts on the variant-record variant-call position for each studied variant call position respectively |
+| perc_lst | List containing the percentual ratio of molecules support FFPE-artefacts to the total number of molecules studied for each studied variant call position respectively |
+| record | The variant-record of interest |
+
+### umi_maker
+The umi_maker function rearranges the UMI-tag belonging to a read, based on if the read is read 1 or read 2 in combination with its directionality. To extract the UMI from the read the ext_fun function is used call either qrn_ext or rx_ext based on user input. The UMI is then transformed into a string and used as input for the spl_fun function. Returns the query-name of the read, the strand it belongs to, and the adjusted UMI-sequence.
+
+| Input | Function |
+| --- | --- |
+| read | Read of interest
+| splt_umi| UMI-tag for the read split into two strings |
+
+### qrn_ext
+The qrn_ext function extracts a umi-tag from a read, based on the key being present as the last item in the query-name. Returns the umi-tag.
+
+| Input | Function |
+| --- | --- |
+| read | Read from which the umi-tag is to be extracted from |
+
+### rx_ext
+The rx_ext function extracts a umi-tag from a read, based on the key being present in the RX-tag. Returns the umi-tag.
+
+| Input | Function |
+| --- | --- |
+| read | Read from which the umi-tag is to be extracted from |
+
+### cha_splt
+The cha_splt function splits the umi_string based on the split-character argument. Returns a list containing the umi-tag split into two components.
+
+| Input | Function |
+| --- | --- |
+| umi_str | A string representing the umi-tag to be split |
+| char | Character to split the umi-string by |
+
+### hlf_splt
+The hlf_splt function splits the umi_string in half based on its length. Returns a list containing the umi-tag split into two components. 
+
+| Input | Function |
+| --- | --- |
+| umi_str | A string representing the umi-tag to be split |
+| char | Character to split the umi-string by (not used but required by the function call) |
+
+### pos_hits
+The pos_hits function selects the most prominent base for a UMI of interest. The function works through iterating through all query-names in the input list and determines if the query-name has a mate or not. The function then calls the base_check function to retrieve the base matching the variant-record position for each read. In the next step the retrieved base is matched against a dict, and depending on the outcome adds to a counter representative of the base. This process is repeated for each query name and its subsequent read, and the resulting dict is then used to determine the most prominent nucleotide for the UMI, effectively collapsing all reads belonging to a UMI. Returns the consensus nucleotide
+
+| Input | Function |
+| --- | --- |
+| inp_dict | Input list of reads categorized by their query-name |
+| rec_pos | The position of the called variant in the reference genome |
+
+| Dict | Structure |
+| --- | --- |
+| Input | Example dict: input_dict = {example_name_UMI_ACTGCA+ACTGCA: {read1, read2}, example_2_name_UMI_TGACGT+TGACGT: {read2}} |
+| Output | Example list: cons_lst = [UMI_tag_1: C, UMI_tag_2: T] |
+
+### base_check
+The base_check function checks the variant-record position against the supplemented read, and then extracts the nucleotide belonging to this position in the read. Returns the nucleotide in the read mapping against the variant-record position.
+
+| Input | Function |
+| --- | --- |
+| read | Read of interest |
+| rec_pos | The position of the called variant in the reference genome |
+
+### ffpe_finder
+The ffpe_finder function is made to classify the variant type for paired UMI-reads. All-together the UMI and its variant-record position can be classified as: No mutation, Mutation, FFPE-artefact, Unknown (N) or Deletion (-).
+
+The function uses a dict of paired reads containing their consensus nucleotides categorized through their UMI-tag, which is then iterated through for every UMI. It then uses the consensus nucleotide originating from string 1 and string 2 to classify the UMI through comparing these to one another. If the two consensus nucleotides are equal to one another and furthermore equal to the base in the reference genome, the UMI is determined to be "No mutation".If the two consensus nucleotides are equal to one another and furthermore equal to the variant in the variant-record, they are instead deemed to be a "True mutation". In default mode, a FFPE classification only occurs if there is a mismatch between the two consensus nucleotides, if one of the consensus nucleotides is equal to the variant in the variant-record, and finally if the mismatch is of a C:T, T:C or G:A, A:G type. Alternatively, if the flag "ffpe_b" has been called with the input "all", the function instead classifies any mismatch between the  consensus nucleotides for string 1 and string 2 as a FFPE-artefact. If any of the consensus nucleotides are equal to N or -. the UMI is instead deemed to be "Unknown" or "Deletion" respectively.
+
+After a UMI is classified, a counter is added to, and the UMI is stored within a dict named after the variant type. Once the algorithm has iterated through every UMI within the cons\_dict, it creates a new dict containing all variant-type dicts as well as their molecular support, which is then returned
+
+| Input | Function |
+| --- | --- |
+| cons_dict | Dict containing the consensus nucleotides for String 1 and String 2 classified through their UMI-tag |
+| var_nuc | The nucleotide called in the variant-record |
+| ref_nuc | The nucleotide found in the reference genome at the variant-call position |
+| ffpe_b | Optional input argument controlling which mismatches to consider  for FFPE-classification |
+
+| Dict | Structure |
+| --- | --- |
+| Input | Example dict for a FFPE artefact: cons_dict = {String_1_Hits: C, String_2_Hits: T} |
+| Output | Example dict for a FFPE-artefact: var_dict = {"Single_Hits": Str1_Hits: {}, Str2_Hits:{C,T}, "Mate_Hits": Mutation_Hits": {},"FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0, "Mutation_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}} |
+
+### mol_count
+The mol_count function uses the output generated by the var\_extract function, more specifically support for each variant-type as well as the support for the reference and variant call for str1 and str2. Returns a list consisting of the support for each variant type
+
+| Input | Function |
+| --- | --- |
+| inp_dict | The output dict from the var_extract function |
+
+| Dict | Structure |
+| --- | --- |
+| Input | Example dict for a FFPE-artefact: inp_dict = umi_key : {"Single_Hits": Str1_Hits: {}, Str2_Hits:{C,T}, "Mate_Hits": Mutation_Hits": {},"FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0, "Mutation_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}} |
+| Output | Example dict for a FFPE-artefact: var_dict = {"Single_Hits": Str1_Hits: {}, Str2_Hits:{C,T}, "Mate_Hits": Mutation_Hits": {},"FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0, "Mutation_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}} |
+| Output | Example list for a FFPE-artefact: [0,0,1,0,0] |
+
+### nuc_count
+The nuc_count function uses the output generated by the var_extract function, more specifically the support for a given nucleotide of interest. Returns a dict containing subsequent dicts with the support for the nucleotide for paired reads on str1, str2, as well as the support for the nucleotide on single reads belonging to string 1 and string 2.
+
+| Input | Function |
+| --- | --- |
+| inp_dict | The output dict from the var_extract function |
+| nuc | The nucleotide of interest |
+
+| Dict | Structure |
+| --- | --- |
+| Input | Example dict for a FFPE-artefact: inp_dict = umi_key : {"Single_Hits": Str1_Hits: {}, Str2_Hits:{C,T}, "Mate_Hits": Mutation_Hits": {},"FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0, "Mutation_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}} |
+| Output | Example dict for a FFPE-artefact: var_dict = {"Single_Hits": Str1_Hits: {}, Str2_Hits:{C,T}, "Mate_Hits": Mutation_Hits": {},"FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0, "Mutation_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}} |
+| Output | Example dict for the nucleotide C for a imaginary input_dict: n_sup = {"Paired": {"String_1": {C: {12}}, "String_2": C: {11},  "String_1_Single": C: {5}, "String_2_Single": C: {2}} |
 
 ### Tests
 FUMIC comes supplemented with a test_fumic.py function which contains unit-tests for FUMIC. These can be easily run through Travis, or manually through the terminal.
@@ -185,4 +334,33 @@ test_ffpe_finder
 tests the var_extract function for a case with no mutation, a case with a mutation, a case with a ffpe-artefact, a case with an unknown, and a case with a deletion
 ```
 
+## FAQ
+The FAQ aims to answer questions the reader may have regarding FUMIC and its use.
+
+### Why do i need a VCF-file to use FUMIC? 
+The VCF is required to identify and target known variant calls. As a FFPE-artefact will be initially identified as a variant in the single-reads, they are then used to evaluate if they are in fact FFPE-artefacts or not. We as developers felt no need to construct a custom variant-caller due to the abundance of excellent and sophisticated variant-calling software already existing. 
+
+### Why is there a need for a BAI file, is the BAM not enough?
+A BAM file is stored in binary format, and thus has no internal structure to use for purposes of fetching. The BAI file provides an indexed form of the BAM, allowing us to fetch specific reads, which is a function FUMIC requires. 
+
+### The molecular support for the variant-call variants in my output seems comparatively low to the read-depth, why is this? 
+FUMIC can only classify variant types if the UMI it is studying has both a string 1 and string 2 consensus sequence. Thus, if the studied data has many singletons or if only one of the strings align to the variant-call position, there will be a limited amount of classifications that can be made. The single paired reads and the singletons instead provide molecular support for the variant call nucleotide as well as the reference genome nucleotide for the variant-call position. 
+
+### What are the recommended number of threads to run FUMIC on?:
+The optimal number of threads depends entirely on the system FUMIC is to be run on. Ideally, one should use n-1 threads, where n is the total number of available processors on the system. 
+
+### How do i know where the UMI-tag is stored, and how do i know what character is separating it (if there is any)? 
+Due to the high variability of sequence data, this is not an automated process by FUMIC, but instead requires the user to manually inspect one of their reads. We recommend the user to utilize the free software SAMtools \cite{SAMtools} for this purpose.
+
+### Where can i dowload FUMIC, and is FUMIC free?
+FUMIC is a publically available software, and can be acquired free of charge through its github page: \url{https://github.com/clinical-genomics-uppsala/fumic}
+
+### I have identified a bug or have suggestions for improving the program, where can i contact you regarding this?
+All inquires regarding updating the software should be done through FUMIC's github: \url{https://github.com/clinical-genomics-uppsala/fumic}
+
+### I have a question not covered by the FAQ, where can i contact you regarding this?:}
+All inquires regarding questions about the program should be done through FUMIC's github: \url{https://github.com/clinical-genomics-uppsala/fumic}
+
+## Special thanks and credits
+FUMIC were developed by Hugo Swenson and Clinical Genomics, Uppsala University in 2019. Special thanks and credit goes to Claes Ladenvall & Patrik Smeds at Clinical Genomics Uppsala for their support and expertise in regards to developing this program. Furthermore i would like Adam Ameur at Department of Immunology, Genetics and Pathology and Uppsala Genome Center for creative feedback and suggestions on how to improve the program.
 
