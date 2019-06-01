@@ -11,7 +11,7 @@ FUMIC requires the user to have basic understanding of the data they wish to stu
 From this input, FUMIC generates a modified VCF-file as output. The output VCF is a copy  of the input VCF but has a modified "FILTER" field where any classified FFPE-artefact will display  "FFPE". Furthermore, the output VCF with also have a modified "FORMAT" field where the molecular support for the variant position having no mutation a true mutation, an FFPE-artefact, an unknown, or a deletion will be displayed. This field also contains the molecular support for the reference genome nucleotide as well as the called variant nucleotide for paired reads on str1, str2, as well as the support on single reads belonging to string 1 and string 2.
 
 ### Prerequisites
-FUMIC is based on the python module Pysam, and thus requires this to be installed. Furthermore, FUMIC requires the module pandas to be run. Both modules can be obtained for free through their respective githubs, or easily installed through pip.
+FUMIC is based on the python module Pysam, and thus requires this to be installed. Furthermore, FUMIC requires the module pandas to be run. Both modules can be obtained for free through their respective github-pages, or easily installed through pip.
 
 ```
 sudo pip install pandas
