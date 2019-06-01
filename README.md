@@ -19,10 +19,10 @@ sudo pip install pysam
 ```
 
 There are four fundamental assumptions made by FUMIC to yield the desired output 
-  -(1) The input sequence data is UMI-tagged 
-  -(2) The sequence data alignment includes gapped bases 
-  -(3) The UMI-tag is located either in the query-name or RX-tag fields in the BAM (translated to SAM) file. 
-  -(4) If the UMI-tag is located in the query-name, it is located as the last entry and separated from the rest of the query name through  
+  1. The input sequence data is UMI-tagged 
+  2. The sequence data alignment includes gapped bases 
+  3. The UMI-tag is located either in the query-name or RX-tag fields in the BAM (translated to SAM) file. 
+  4. If the UMI-tag is located in the query-name, it is located as the last entry and separated from the rest of the query name through  
 
 The first assumption is necessary due to FUMIC's algorithm working in a classifying manner. To identify all reads stemming from a source molecule, a common identifier in the form of the UMI is vital for collapsing reads into a consensus sequence. The second assumption is necessary to properly locate the called variant within each subsequent read belonging to a UMI of interest. FUMIC uses the reference genome to identify the correct position for each subsequent read. And thus, If gapped bases are not included, this position will be incorrect, thus yielding an incorrect comparison. The third and fourth assumption are both necessary to ensure that the UMI-tagged data can be properly extracted from each read. 
 
