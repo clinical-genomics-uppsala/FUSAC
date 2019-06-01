@@ -85,9 +85,66 @@ We can then further identify the molecular support for the reference nucleotide 
 
 To summarize, we can see that for position 4367323 15 molecules support an FFPE artefact. However, as 313 molecules support a true mutation, this specific position is unlikely to be a true FFPE-artefact, and thus these results are more likely to be caused by some other factor. 
 
-## Functions
+## Reference manual
+The reference manual covers all functions belonging to FUMIC, describing their purpose, mehodology and input/output. Use to get a better understanding of FUMIC or if you have any questions. 
 
-### 
+### Main
+After the user have supplemented their desired input arguments using the flags covered in the section "Quickstart", the main function will use the vcf-file as an input argument to populate a newly generated double-ended-queue (deque) of size -qs, with the variant-calls found within the VCF-file. Based on the flag "threads", the function will then create -t consumer threads, their results appended to a result-queue. Once the VCF has been iterated through entirely, the output will be written to an output vcf-file.
+
+### QueueThread
+The QueueThread function is a producer which takes the variant-calls found within the VCF-file and populates a deque (while not full) to be used by the consumer function.
+
+| Input | Function |
+| --- | --- |
+| vcf_file | VCF filehandle |
+| thr_que | Deque to be populated |
+| ID | rs1490413 |
+
+### ResultThread
+While the deque is not empty, the ResultThread function calls upon the vcf_extract function using the variant-record extracted as input. The subsequent results are then stored in a separate thread while not None.
+
+| Input | Function |
+| --- | --- |
+| bam_path | Path to BAM-file |
+| thr_que | Populated deque to be used as input for vcf_extract |
+| res_que | Queue to be populated with the results from vcf_extract |
+| ffpe_b | Optional input argument controlling which mismatches to consider  for FFPE-classification |
+| ext_fun | Function for extracting the UMI-tag from a read |
+| spl_fun | Function used for splitting the UMI-tag in a read |
+| spl_cha | Character used for splitting the UMI-tag |
+
+### vcf_extract
+The vcf_extract function uses the supplemented variant-record to extract all reads in the BAM-file overlapping with its position. This newly generated list is used for the var_extract function to return molecular data. The output from var_extract is then subsequently used in the inf_builder function. Finally, the output from inf_builder is added to the copied input record and returned.
+
+| Input | Function |
+| --- | --- |
+| record | Variant-record of interest
+| bam_file | BAM-file filehandle |
+| ffpe_b | Optional input argument controlling which mismatches to consider  for FFPE-classification |
+| ext_fun | Function for extracting the UMI-tag from a read |
+| spl_fun | Function used for splitting the UMI-tag in a read |
+| spl_cha | Character used for splitting the UMI-tag |
+
+### var_extract
+he var\_extract function first calls the umi_maker function which creates a dict based on the directionality and umi-tags of the supplemented reads in the bam_lst. This dict is then used to call the pos_hits function which will return a dict of consensus nucleotides for each UMI. For paired reads (ie: exists on both string 1 and string 2 for a UMI) the output from the pos_hits function is then used to call the ffpe_finder function which returns a dict containing the variant type for eachUMI along with the molecular support for each variant type. The pos_checker function returns a dict with data regarding the support for each variant type on the variant-record position, as well as the nucleotides present for each variant with respect to their UMI.
+
+| Input | Function |
+| --- | --- |
+| record | Variant-record of interest
+| bam_lst |Input list of BAM-reads aligning to the variant call |
+| ffpe_b | Optional input argument controlling which mismatches to consider  for FFPE-classification |
+| rec_pos | The position of the variant in the reference genome |
+| var_nuc | The nucleotide called in the variant-record |
+| ref_nuc | The nucleotide found in the reference genome at the variant-call position |
+| ffpe_b | Optional input argument controlling which mismatches to consider  for FFPE-classification |
+| ext_fun | Function for extracting the UMI-tag from a read |
+| spl_fun | Function used for splitting the UMI-tag in a read |
+| spl_cha | Character used for splitting the UMI-tag |
+
+| Dict | Structure |
+| --- | --- |
+| Input | Example list: bam_lst = [read_1, read_2 ... ] |
+| Output | Example dict: mpd_res[umi_key] = {"Single_Hits": Str1_Hits: {}, Str2_Hits:{C,T}, "Mate_Hits": Mutation_Hits": {}, "FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0, "Mutation_Support": 0, \\ "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0 |
 
 ### Tests
 FUMIC comes supplemented with a test_fumic.py function which contains unit-tests for FUMIC. These can be easily run through Travis, or manually through the terminal.
