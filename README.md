@@ -98,7 +98,6 @@ The QueueThread function is a producer which takes the variant-calls found withi
 | --- | --- |
 | vcf_file | VCF filehandle |
 | thr_que | Deque to be populated |
-| ID | rs1490413 |
 
 ### ResultThread
 While the deque is not empty, the ResultThread function calls upon the vcf_extract function using the variant-record extracted as input. The subsequent results are then stored in a separate thread while not None.
@@ -130,7 +129,6 @@ The var_extract function first calls the umi_maker function which creates a dict
 
 | Input | Function |
 | --- | --- |
-| record | Variant-record of interest
 | bam_lst |Input list of BAM-reads aligning to the variant call |
 | ffpe_b | Optional input argument controlling which mismatches to consider  for FFPE-classification |
 | rec_pos | The position of the variant in the reference genome |
