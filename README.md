@@ -350,13 +350,13 @@ The optimal number of threads depends entirely on the system FUMIC is to be run 
 Due to the high variability of sequence data, this is not an automated process by FUMIC, but instead requires the user to manually inspect one of their reads. We recommend the user to utilize the free software SAMtools \cite{SAMtools} for this purpose.
 
 ### Where can i dowload FUMIC, and is FUMIC free?
-FUMIC is a publically available software, and can be acquired free of charge through its github page: \url{https://github.com/clinical-genomics-uppsala/fumic}
+FUMIC is a publically available software, and can be acquired free of charge through its github page: https://github.com/clinical-genomics-uppsala/fumic
 
 ### I have identified a bug or have suggestions for improving the program, where can i contact you regarding this?
-All inquires regarding updating the software should be done through FUMIC's github: \url{https://github.com/clinical-genomics-uppsala/fumic}
+All inquires regarding updating the software should be done through FUMIC's github: https://github.com/clinical-genomics-uppsala/fumic
 
-### I have a question not covered by the FAQ, where can i contact you regarding this?:}
-All inquires regarding questions about the program should be done through FUMIC's github: \url{https://github.com/clinical-genomics-uppsala/fumic}
+### I have a question not covered by the FAQ, where can i contact you regarding this?:
+All inquires regarding questions about the program should be done through FUMIC's github: https://github.com/clinical-genomics-uppsala/fumic
 
 ## Special thanks and credits
 FUMIC were developed by Hugo Swenson and Clinical Genomics, Uppsala University in 2019. Special thanks and credit goes to Claes Ladenvall & Patrik Smeds at Clinical Genomics Uppsala for their support and expertise in regards to developing this program. Furthermore i would like Adam Ameur at Department of Immunology, Genetics and Pathology and Uppsala Genome Center for creative feedback and suggestions on how to improve the program.
