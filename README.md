@@ -130,7 +130,6 @@ The var_extract function first calls the umi_maker function which creates a dict
 | Input | Function |
 | --- | --- |
 | bam_lst |Input list of BAM-reads aligning to the variant call |
-| ffpe_b | Optional input argument controlling which mismatches to consider  for FFPE-classification |
 | rec_pos | The position of the variant in the reference genome |
 | var_nuc | The nucleotide called in the variant-record |
 | ref_nuc | The nucleotide found in the reference genome at the variant-call position |
