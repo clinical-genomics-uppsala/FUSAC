@@ -358,9 +358,6 @@ All inquires regarding updating the software should be done through FUMIC's gith
 ### I have a question not covered by the FAQ, where can i contact you regarding this?:}
 All inquires regarding questions about the program should be done through FUMIC's github: \url{https://github.com/clinical-genomics-uppsala/fumic}
 
-
-![Alt](fumic_flowchart.pdf){width=100% height=400}
-
 ## Special thanks and credits
 FUMIC were developed by Hugo Swenson and Clinical Genomics, Uppsala University in 2019. Special thanks and credit goes to Claes Ladenvall & Patrik Smeds at Clinical Genomics Uppsala for their support and expertise in regards to developing this program. Furthermore i would like Adam Ameur at Department of Immunology, Genetics and Pathology and Uppsala Genome Center for creative feedback and suggestions on how to improve the program.
 
