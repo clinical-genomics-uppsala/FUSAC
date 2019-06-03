@@ -251,6 +251,8 @@ def csv_maker(vcf_file, ffpe_b):
                                 str(record.ref) == 'C' and str(list(record.alts)[0]) == 'T':
                             ffpe_ind += 1
                             csv_record_maker(pos_lst, change_lst, var_lst, ffpe_lst, ref_lst, perc_lst, record)
+                            pos_lst.append(str(record.pos))
+                            change_lst.append(str(record.ref) + ">" + str(list(record.alts)[0]))
                 else:
                     ind += 1
         except KeyError as e:
