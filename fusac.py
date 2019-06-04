@@ -1,6 +1,6 @@
 # !/usr/bin/env python3
 
-# FUMIC - FFPE-artefact UMI-based Mapper for Imputation in Cancer-sample tissue data
+# FUSAC - FFPE-tissue UMI-based Sequence Artefact Classifier
 # By Hugo Swenson, with assistance from Patrik Smeds and Claes Edenvall
 # Made for Klinisk Genetik, Uppsala Akademiska Sjukhus 2019
 
@@ -56,8 +56,7 @@ class ConsumerThread(threading.Thread):
 def main():
     t_start = time.time()
 
-    parser = argparse.ArgumentParser(description='FUMIC - FFPE-artefact UMI-based Mapper for Imputation in '
-                                                 'Cancer-sample tissue data')
+    parser = argparse.ArgumentParser(description='FUSAC - FFPE-tissue UMI-based Sequence Artefact Classifier')
     parser.add_argument('-b', '--inputBAM', help='Input BAM file (Required)', required=True)
     parser.add_argument('-v', '--inputVCF', help='Input VCF file (Required)', required=True)
     parser.add_argument('-t', '--threads', help='No. threads to run the program (Optional)', required=False, default=1)
@@ -71,7 +70,7 @@ def main():
                         help='Split character for the UMI-tag. Default = +,  Alternative: Any, '
                              'use "" for splitting the umi in half',
                         required=False, default="+")
-    parser.add_argument('-cf', '--csvFile', help='Generate an output CSV file based on the fumic-output containing '
+    parser.add_argument('-cf', '--csvFile', help='Generate an output CSV file based on the FUSAC output containing '
                                                  'data for each variant-record regarding the molecular support for '
                                                  'the reference genome nucletoide, the variant-call nucleotide, the '
                                                  'number of FFPE-calls, the overall frequency of FFPE-artefacts for '
@@ -109,7 +108,7 @@ def main():
     vcf_head.formats.add("SUMI", ".", "String", "Singleton information for variant then reference "
                                                 "Paired ref;Paired var;Single ref: Single var")
 
-    n_vcf = pysam.VariantFile('fumic_output.vcf', mode='w', header=vcf_head)
+    n_vcf = pysam.VariantFile('fusac_output.vcf', mode='w', header=vcf_head)
 
     # Starts the producer thread to populate the queue
     p_que = ProducerThread(name='producer', vcf_file=vcf_file, thr_que=thr_que)
@@ -133,7 +132,7 @@ def main():
             n_vcf.close()
 
     if cf_arg == "yes":
-        with pysam.VariantFile("fumic_output.vcf", "r") as fum_out:
+        with pysam.VariantFile("fusac_output.vcf", "r") as fum_out:
             build_function.csv_maker(fum_out, ffpe_b)
 
     t_end = time.time()
