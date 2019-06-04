@@ -10,4 +10,4 @@ install:
 script:
   # run the workflow
   # put a test case into the subfolder .test (e.g., use https://github.com/snakemake-workflows/ngs-test-data as a submodule)
-  - python -m test_fumic
+  - python -m test_fusac
