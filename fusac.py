@@ -72,12 +72,16 @@ def main():
                         required=False, default="+")
     parser.add_argument('-cf', '--csvFile', help='Generate an output CSV file based on the FUSAC output containing '
                                                  'data for each variant-record regarding the molecular support for '
-                                                 'the reference genome nucletoide, the variant-call nucleotide, the '
+                                                 'the reference genome nucleotide, the variant-call nucleotide, the '
                                                  'number of FFPE-calls, the overall frequency of FFPE-artefacts for '
                                                  'each variant-record, and the type of mismatch for the variant-record.'
                                                  ' Default: yes, Alternative: no',
                         required=False, default="yes")
-
+    parser.add_argument('-pe', '--percentageExclude', help='Integer value wwhich controls whether or not to filter '
+                                                           'the results when generating the output CSV-file based'
+                                                           'on the frequency of detected FFPE-artefacts in a output'
+                                                           'variant-record',
+                        required=False, default="0")
     args = vars(parser.parse_args())
     thr_que = deque([0]*int(args["queueSize"]))
     # thr_que = queue.Queue(int(args["queueSize"]))
@@ -85,6 +89,7 @@ def main():
     umi_pos = str(args["umiPosition"])
     spl_cha = str(args["splitCharacter"])
     cf_arg = str(args["csvFile"])
+    per_exl = int(args["percentageExclude"])
 
     if umi_pos == "qrn":
         ext_fun = pos_function.qrn_ext
@@ -133,7 +138,7 @@ def main():
 
     if cf_arg == "yes":
         with pysam.VariantFile("fusac_output.vcf", "r") as fum_out:
-            build_function.csv_maker(fum_out, ffpe_b)
+            build_function.csv_maker(fum_out, ffpe_b, per_exl)
 
     t_end = time.time()
     print("Total runtime: " + str(t_end - t_start) + "s")
