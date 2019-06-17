@@ -6,7 +6,7 @@ import os
 import shutil
 
 
-def vcf_extract(record, bam_file, ffpe_b, ext_fun, spl_fun, spl_cha):
+def vcf_extract(record, bam_file, ffpe_b, ext_fun, spl_fun, q_spl_cha, u_spl_cha):
     """ Uses the supplemented variant-record to extract all reads in the BAM-file overlapping with its position. This
     newly generated list is used for the pos_checker function to return molecular data. The output from pos_checker is
     then subsequently used in the inf-builder function. Finally, the output from inf_builder is added to the
@@ -18,7 +18,8 @@ def vcf_extract(record, bam_file, ffpe_b, ext_fun, spl_fun, spl_cha):
         :param ffpe_b: Parameter to determine if all mismatches should be classified as ffpe, or solely C:G>T:A
         :param ext_fun: Function for extracting the UMI-tag from a read
         :param spl_fun: Function used for splitting the UMI-tag in a read
-        :param spl_cha: The character used for splitting the UMI-tag
+        :param q_spl_cha: Character used for splittign the UMI-tag from the query-name
+        :param u_spl_cha: The character used for splitting the UMI-tag
 
     Returns:
         :return: Returns a copy of the variant-record modified by the inf_builder output. More specifically, adds a
@@ -48,7 +49,7 @@ def vcf_extract(record, bam_file, ffpe_b, ext_fun, spl_fun, spl_cha):
         bam_lst.append(read)
 
     # Calls the pos_checker function to obtain ffpe_data
-    mpd_data, singleton_data = var_extract(bam_lst, n_pos, n_alt, n_ref, ffpe_b, ext_fun, spl_fun, spl_cha)
+    mpd_data, singleton_data = var_extract(bam_lst, n_pos, n_alt, n_ref, ffpe_b, ext_fun, spl_fun, q_spl_cha, u_spl_cha)
 
     mpd_inf = inf_builder(mpd_data, n_alt, n_ref)
     singleton_inf = inf_builder(singleton_data, n_alt, n_ref)
@@ -76,7 +77,7 @@ def vcf_extract(record, bam_file, ffpe_b, ext_fun, spl_fun, spl_cha):
     return n_cop
 
 
-def var_extract(bam_lst, rec_pos, var_nuc, ref_nuc, ffpe_b, ext_fun, spl_fun, spl_cha):
+def var_extract(bam_lst, rec_pos, var_nuc, ref_nuc, ffpe_b, ext_fun, spl_fun, q_spl_cha, u_spl_cha):
     """ Function with the purpose of creating a dict based on the directionality and umi-tags of the supplemented
     reads in the bam_lst. Then using said dict to call the pos_hits and ffpe_finder functions to return a dict with
     data regarding positional data and variant types for the variant-record position and the reads aligning to it.
@@ -89,7 +90,8 @@ def var_extract(bam_lst, rec_pos, var_nuc, ref_nuc, ffpe_b, ext_fun, spl_fun, sp
         :param ffpe_b: Optional input argument controlling which mismatches to consider for FFPE-classification
         :param ext_fun: Function for extracting the UMI-tag from a read
         :param spl_fun: Function used for splitting the UMI-tag in a read
-        :param spl_cha: Character used for splitting the UMI-tag
+        :param q_spl_cha: Character used for splittign the UMI-tag from the query-name
+        :param u_spl_cha: Character used for splitting the UMI-tag
 
     Returns:
         :return: Returns a dict for mapped and unmapped reads. Each of these dicts containing a single-hits and a
@@ -114,8 +116,8 @@ def var_extract(bam_lst, rec_pos, var_nuc, ref_nuc, ffpe_b, ext_fun, spl_fun, sp
     singleton_res = {}
     try:
         for read in bam_lst:
-            umi = ext_fun(read)
-            splt_umi = spl_fun(umi, spl_cha)
+            umi = ext_fun(read, q_spl_cha)
+            splt_umi = spl_fun(umi, u_spl_cha)
             umi_res = pos_function.umi_maker(read, splt_umi)
             qr_nm = umi_res[0]
             strand = umi_res[1]

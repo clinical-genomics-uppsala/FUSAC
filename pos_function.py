@@ -49,25 +49,27 @@ def umi_maker(read, splt_umi):
     return [qr_nm, strand, umi_id]
 
 
-def qrn_ext(read):
+def qrn_ext(read, q_spl_cha):
     """ The qrn_ext function extracts a umi-tag from a read, based on the key being present as the last item in the
     query-name. Returns the umi-tag.
 
     Args:
         :param read: Read from which the umi-tag is to be extracted from
+        :param q_spl_cha: Character from which to split the UMI-tag from the query-name
 
     Returns:
         :return: A dict containing the umi-tag
     """
-    return read.query_name.split("_")[-1]
+    return read.query_name.split(q_spl_cha)[-1]
 
 
-def rx_ext(read):
+def rx_ext(read, q_spl_cha):
     """ The rx_ext function extracts a umi-key from a read, based on the key being present in the RX-tag.
     Returns the umi-tag.
 
     Args:
         :param read: Read from which the umi-tag is to be extracted from
+        :param q_spl_cha: Character from which to split the UMI-tag from the query-name (required by the function call)
 
     Returns:
         :return: A dict containing the umi-tag
@@ -75,7 +77,7 @@ def rx_ext(read):
     return str(read.get_tag("RX"))
 
 
-def cha_splt(umi_str, char):
+def cha_splt(umi_str, u_spl_cha):
     """ The cha\_splt function splits the umi\_string based on the split-character argument. Returns a list containing
      the umi-tag split into two components.
 
@@ -86,15 +88,15 @@ def cha_splt(umi_str, char):
 
         Args:
             :param umi_str: A string representing the umi-tag to be split
-            :param char: Character to split the umi-string by
+            :param u_spl_cha: Character to split the umi-string by
 
         Returns:
             :return: A dict containing the umi-tag split in two
         """
-    return umi_str.split(char)
+    return umi_str.split(u_spl_cha)
 
 
-def hlf_splt(umi_str, char):
+def hlf_splt(umi_str, u_spl_cha):
     """ The hlf_splt function splits the umi_string in half based on its length. Returns a list containing the umi-tag
     split into two components.
 
@@ -103,7 +105,7 @@ def hlf_splt(umi_str, char):
 
     Args:
         :param umi_str: A string representing the umi-tag to be split
-        :param char: Character to split the umi-string by (not used but required by the function call)
+        :param u_spl_cha: Character to split the umi-string by (required by the function call)
 
     Returns:
         :return: A dict containing the umi-tag split in two

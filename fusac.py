@@ -30,7 +30,7 @@ class ProducerThread(threading.Thread):
 
 
 class ConsumerThread(threading.Thread):
-    def __init__(self, bam_path, thr_que, res_que, ffpe_b, ext_fun, spl_fun, spl_cha, target=None, name=None):
+    def __init__(self, bam_path, thr_que, res_que, ffpe_b, ext_fun, spl_fun, q_spl_cha, u_spl_cha, target=None, name=None):
         super(ConsumerThread, self).__init__()
         self.target = target
         self.name = name
@@ -40,7 +40,8 @@ class ConsumerThread(threading.Thread):
         self.ffpe_b = ffpe_b
         self.ext_fun = ext_fun
         self.spl_fun = spl_fun
-        self.spl_cha = spl_cha
+        self.us_cha = q_spl_cha
+        self.spl_cha = u_spl_cha
 
     def run(self):
         # Calls upon the function vcf_extract while the queue is not empty, stores the results in res_que if not None
@@ -48,7 +49,8 @@ class ConsumerThread(threading.Thread):
         while self.thr_que:
             record = self.thr_que.popleft()
             # record = self.thr_que.get()
-            n_cop = build_function.vcf_extract(record, bam_file, self.ffpe_b, self.ext_fun, self.spl_fun, self.spl_cha)
+            n_cop = build_function.vcf_extract(record, bam_file, self.ffpe_b, self.ext_fun, self.spl_fun, self.us_cha,
+                                               self.spl_cha)
             if n_cop is not None:
                 self.res_que.put(n_cop)
 
@@ -66,7 +68,11 @@ def main():
                         required=False, default="standard")
     parser.add_argument('-up', '--umiPosition', help='UMI-Position: Default: Query-Name (qrn),'
                                                      ' Alternative: RX-tag based (rx)', required=False, default="qrn")
-    parser.add_argument('-sc', '--splitCharacter',
+
+    parser.add_argument('-qsc', '--QrnSplitCharacter', help='Character separating UMI from the query-name: '
+                                                            'Default: _ , Alternative: Any', required=False, default="_")
+
+    parser.add_argument('-usc', '--UMISplitCharacter',
                         help='Split character for the UMI-tag. Default = +,  Alternative: Any, '
                              'use "" for splitting the umi in half',
                         required=False, default="+")
@@ -77,17 +83,18 @@ def main():
                                                  'each variant-record, and the type of mismatch for the variant-record.'
                                                  ' Default: yes, Alternative: no',
                         required=False, default="yes")
-    parser.add_argument('-pe', '--percentageExclude', nargs=2, help='Integer value wwhich controls whether or not to filter '
-                                                           'the results when generating the output CSV-file based'
-                                                           'on the frequency of detected FFPE-artefacts in a output'
-                                                           'variant-record',
-                        required=False, default="0")
+    parser.add_argument('-pe', '--percentageExclude', nargs=2, help='Integer values which controls whether or not '
+                                                                    'to filter the results when generating the output '
+                                                                    'CSV-file based on FFPE VAF range',
+                        required=False, default=["0", "100"])
+
     args = vars(parser.parse_args())
     thr_que = deque([0]*int(args["queueSize"]))
     # thr_que = queue.Queue(int(args["queueSize"]))
     ffpe_b = str(args["ffpeBases"])
     umi_pos = str(args["umiPosition"])
-    spl_cha = str(args["splitCharacter"])
+    u_spl_cha = str(args["UMISplitCharacter"])
+    q_spl_cha = str(args["QrnSplitCharacter"])
     cf_arg = str(args["csvFile"])
     per_exl = args["percentageExclude"]
 
@@ -95,9 +102,9 @@ def main():
         ext_fun = pos_function.qrn_ext
     else:
         ext_fun = pos_function.rx_ext
-        spl_cha = ""
+        u_spl_cha = ""
 
-    if spl_cha == "":
+    if u_spl_cha == "":
         spl_fun = pos_function.hlf_splt
     else:
         spl_fun = pos_function.cha_splt
@@ -121,7 +128,7 @@ def main():
     threads = []
     for t in range(int(args["threads"])):
         threads.append(ConsumerThread(name='consumer', bam_path=bam_path, thr_que=thr_que, res_que=res_que,
-                                      ffpe_b=ffpe_b, ext_fun=ext_fun, spl_fun=spl_fun, spl_cha=spl_cha))
+                                      ffpe_b=ffpe_b, ext_fun=ext_fun, spl_fun=spl_fun, q_spl_cha=q_spl_cha, u_spl_cha=u_spl_cha))
 
     # Starts the consumer thread to generate output from the queue
     for t in threads:
