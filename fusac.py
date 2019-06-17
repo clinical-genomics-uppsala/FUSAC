@@ -77,7 +77,7 @@ def main():
                                                  'each variant-record, and the type of mismatch for the variant-record.'
                                                  ' Default: yes, Alternative: no',
                         required=False, default="yes")
-    parser.add_argument('-pe', '--percentageExclude', help='Integer value wwhich controls whether or not to filter '
+    parser.add_argument('-pe', '--percentageExclude', nargs=2, help='Integer value wwhich controls whether or not to filter '
                                                            'the results when generating the output CSV-file based'
                                                            'on the frequency of detected FFPE-artefacts in a output'
                                                            'variant-record',
@@ -89,7 +89,7 @@ def main():
     umi_pos = str(args["umiPosition"])
     spl_cha = str(args["splitCharacter"])
     cf_arg = str(args["csvFile"])
-    per_exl = int(args["percentageExclude"])
+    per_exl = args["percentageExclude"]
 
     if umi_pos == "qrn":
         ext_fun = pos_function.qrn_ext

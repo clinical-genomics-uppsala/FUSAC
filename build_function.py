@@ -303,7 +303,7 @@ def csv_record_maker(pos_lst, change_lst, var_lst, ffpe_lst, ref_lst, perc_lst, 
             rec_del = int(rec_splt[4])
             perc_rec = (rec_ref + rec_var + rec_ffpe + rec_n + rec_del)
             if perc_rec != 0:
-                ffpe_perc = rec_ffpe/perc_rec
+                ffpe_perc = (rec_ffpe/perc_rec)*100
 
             if per_exl == 0:
                 pos_lst.append(str(record.pos))
@@ -311,9 +311,9 @@ def csv_record_maker(pos_lst, change_lst, var_lst, ffpe_lst, ref_lst, perc_lst, 
                 var_lst.append(rec_var)
                 ffpe_lst.append(rec_ffpe)
                 ref_lst.append(rec_ref)
-                perc_lst.append(ffpe_perc*100)
+                perc_lst.append(ffpe_perc)
             else:
-                if (per_exl/100) > ffpe_perc:
+                if not int(per_exl[0]) <= ffpe_perc <= int(per_exl[1]):
                     continue
                 else:
                     pos_lst.append(str(record.pos))
@@ -321,4 +321,4 @@ def csv_record_maker(pos_lst, change_lst, var_lst, ffpe_lst, ref_lst, perc_lst, 
                     var_lst.append(rec_var)
                     ffpe_lst.append(rec_ffpe)
                     ref_lst.append(rec_ref)
-                    perc_lst.append(ffpe_perc*100)
+                    perc_lst.append(ffpe_perc)
