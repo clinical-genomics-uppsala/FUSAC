@@ -231,9 +231,6 @@ def csv_maker(vcf_file, ffpe_b, per_exl):
     Returns:
         :return: Generates a .csv file with statistics to be used with the fusac_visualize.r function
     """
-
-    ffpe_ind = 0
-    ind = 0
     var_lst = []
     ref_lst = []
     ffpe_lst = []
@@ -243,18 +240,14 @@ def csv_maker(vcf_file, ffpe_b, per_exl):
     for record in vcf_file.fetch():
         try:
             r_f = record.filter
-            for f_val in r_f:
-                if f_val == "FFPE":
-                    if ffpe_b == "all":
-                        ffpe_ind += 1
-                        csv_record_maker(pos_lst, change_lst, var_lst, ffpe_lst, ref_lst, perc_lst, record, per_exl)
-                    else:
+            if ffpe_b == "all":
+                csv_record_maker(pos_lst, change_lst, var_lst, ffpe_lst, ref_lst, perc_lst, record, per_exl)
+            else:
+                for f_val in r_f:
+                    if f_val == "FFPE":
                         if str(record.ref) == 'G' and str(list(record.alts)[0]) == 'A' or \
                                 str(record.ref) == 'C' and str(list(record.alts)[0]) == 'T':
-                            ffpe_ind += 1
                             csv_record_maker(pos_lst, change_lst, var_lst, ffpe_lst, ref_lst, perc_lst, record, per_exl)
-                else:
-                    ind += 1
         except KeyError as e:
             print("ERROR: The requested filter tag " + str(e) + " does not exist")
 
