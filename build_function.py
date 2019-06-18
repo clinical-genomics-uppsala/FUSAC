@@ -237,11 +237,22 @@ def csv_maker(vcf_file, ffpe_b, per_exl):
     perc_lst = []
     pos_lst = []
     change_lst = []
+
+    f_var_lst = []
+    f_ref_lst = []
+    f_ffpe_lst = []
+    f_perc_lst = []
+    f_pos_lst = []
+    f_change_lst = []
+
     for record in vcf_file.fetch():
         try:
             r_f = record.filter
             if ffpe_b == "all":
                 csv_record_maker(pos_lst, change_lst, var_lst, ffpe_lst, ref_lst, perc_lst, record, per_exl)
+                for f_val in r_f:
+                    if f_val == "FFPE":
+                        csv_record_maker(f_pos_lst, f_change_lst, f_var_lst, f_ffpe_lst, f_ref_lst, f_perc_lst, record, per_exl)
             else:
                 for f_val in r_f:
                     if f_val == "FFPE":
@@ -258,8 +269,15 @@ def csv_maker(vcf_file, ffpe_b, per_exl):
     else:
         os.makedirs('FUSAC_Stats')
     # Prints out the most important statistics to a .csv file to be used with R
-    pd.DataFrame({'Ref': ref_lst, 'Var': var_lst, 'FFPE': ffpe_lst, 'Perc': perc_lst,
-                  'BaseChange': change_lst}).to_csv("FUSAC_Stats/fusac_stats.csv")
+
+    if ffpe_b == "all":
+        pd.DataFrame({'Ref': ref_lst, 'Var': var_lst, 'FFPE': ffpe_lst, 'Perc': perc_lst,
+                      'BaseChange': change_lst}).to_csv("FUSAC_Stats/fusac_all_stats.csv")
+        pd.DataFrame({'Ref': f_ref_lst, 'Var': f_var_lst, 'FFPE': f_ffpe_lst, 'Perc': f_perc_lst,
+                      'BaseChange': f_change_lst}).to_csv("FUSAC_Stats/fusac_stats.csv")
+    else:
+        pd.DataFrame({'Ref': ref_lst, 'Var': var_lst, 'FFPE': ffpe_lst, 'Perc': perc_lst,
+                      'BaseChange': change_lst}).to_csv("FUSAC_Stats/fusac_stats.csv")
 
 
 def csv_record_maker(pos_lst, change_lst, var_lst, ffpe_lst, ref_lst, perc_lst, record, per_exl):
