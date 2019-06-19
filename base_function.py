@@ -108,18 +108,19 @@ def ffpe_finder(cons_dict, var_nuc, ref_nuc, ffpe_b):
                 # PySAM's get_forward_sequence returns the reverse complement for any reverse reads
 
                 # Deamination of C to U [U-G] > [U-A], [C-G] > [T-A], [C,G],
-                # returned as [T-T],[C,C] as A is returned as T by PySAM, ie: C vs. T
-                # Deamination of C to U [G-U] > [A-U], [G-C] > [A-T], [G-C],
-                # returned as [A-A],[G,G] as T is returned as A by PySAM, ie G vs. A
-                # Deamination of methylated C to T [T-G] > [T-A],[C-G],
-                # returned as [T-T],[C-C], as A is returned as T by PySAM, ie: C vs.T
-                # Deamination of methylated C to T [G-T] > [A-T],[G-C],
+                # returned as [T-T],[C,C] as A is returned as T by PySAM, ie: T vs. C
+
+                # Deamination of C to U [G-U] > [G-C], [A-U] > [G-C], [A-T],
+                # returned as [G,G], [A-A] as T is returned as A by PySAM, ie G vs. A
+
+                # Deamination of methylated C to T [C-G] > [T-G] > [T-A],[C-G],
+                # returned as [T-T],[C-C], as A is returned as T by PySAM, ie: T vs.C
+
+                # Deamination of methylated C to T [G-C] > [G-T] > [A-T],[G-C],
                 # returned as [A-A],[G-G] as T is returned as A by PySAM, ie: G vs. A
 
-                if str1_bas == 'C' and str2_bas == 'T' or \
-                        str1_bas == 'T' and str2_bas == 'C' or \
-                        str1_bas == 'G' and str2_bas == 'A' or \
-                        str1_bas == 'A' and str2_bas == 'G':
+                if str1_bas == 'T' and str2_bas == 'C' or \
+                        str1_bas == 'G' and str2_bas == 'A':
                     # Checks to see if any of the bases are equal to the variant call
                     if str1_bas == var_nuc or str2_bas == var_nuc:
                         ffpe_dict = {"String_1": str1_bas, "String_2": str2_bas}
