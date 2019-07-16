@@ -30,14 +30,14 @@ class ProducerThread(threading.Thread):
 
 
 class ConsumerThread(threading.Thread):
-    def __init__(self, bam_path, thr_que, res_que, ffpe_b, ext_fun, spl_fun, q_spl_cha, u_spl_cha, target=None, name=None):
+    def __init__(self, bam_path, thr_que, res_que, ffpe_n, ext_fun, spl_fun, q_spl_cha, u_spl_cha, target=None, name=None):
         super(ConsumerThread, self).__init__()
         self.target = target
         self.name = name
         self.thr_que = thr_que
         self.res_que = res_que
         self.bam_path = bam_path
-        self.ffpe_b = ffpe_b
+        self.ffpe_n = ffpe_n
         self.ext_fun = ext_fun
         self.spl_fun = spl_fun
         self.us_cha = q_spl_cha
@@ -49,7 +49,7 @@ class ConsumerThread(threading.Thread):
         while self.thr_que:
             record = self.thr_que.popleft()
             # record = self.thr_que.get()
-            n_cop = build_function.vcf_extract(record, bam_file, self.ffpe_b, self.ext_fun, self.spl_fun, self.us_cha,
+            n_cop = build_function.vcf_extract(record, bam_file, self.ffpe_n, self.ext_fun, self.spl_fun, self.us_cha,
                                                self.spl_cha)
             if n_cop is not None:
                 self.res_que.put(n_cop)
@@ -63,8 +63,8 @@ def main():
     parser.add_argument('-v', '--inputVCF', help='Input VCF file (Required)', required=True)
     parser.add_argument('-t', '--threads', help='No. threads to run the program (Optional)', required=False, default=1)
     parser.add_argument('-qs', '--queueSize', help='Input Queue-Size (Optional)', required=False, default=0)
-    parser.add_argument('-fb', '--ffpeBases', help='Choose "all" to include all base transitions in the analysis, '
-                                                   'Default: C:G>T:A, Alternative: All',
+    parser.add_argument('-fn', '--ffpeNucleotides', help='Choose "all" to include all base transitions in the analysis,'
+                                                         'Default: C:G>T:A, Alternative: All',
                         required=False, default="standard")
     parser.add_argument('-up', '--umiPosition', help='UMI-Position: Default: Query-Name (qrn),'
                                                      ' Alternative: RX-tag based (rx)', required=False, default="qrn")
@@ -90,8 +90,7 @@ def main():
 
     args = vars(parser.parse_args())
     thr_que = deque([0]*int(args["queueSize"]))
-    # thr_que = queue.Queue(int(args["queueSize"]))
-    ffpe_b = str(args["ffpeBases"])
+    ffpe_n = str(args["ffpeNucleotides"])
     umi_pos = str(args["umiPosition"])
     u_spl_cha = str(args["UMISplitCharacter"])
     q_spl_cha = str(args["QrnSplitCharacter"])
@@ -128,7 +127,8 @@ def main():
     threads = []
     for t in range(int(args["threads"])):
         threads.append(ConsumerThread(name='consumer', bam_path=bam_path, thr_que=thr_que, res_que=res_que,
-                                      ffpe_b=ffpe_b, ext_fun=ext_fun, spl_fun=spl_fun, q_spl_cha=q_spl_cha, u_spl_cha=u_spl_cha))
+                                      ffpe_n=ffpe_n, ext_fun=ext_fun, spl_fun=spl_fun, q_spl_cha=q_spl_cha,
+                                      u_spl_cha=u_spl_cha))
 
     # Starts the consumer thread to generate output from the queue
     for t in threads:
@@ -145,7 +145,7 @@ def main():
 
     if cf_arg == "yes":
         with pysam.VariantFile("fusac_output.vcf", "r") as fum_out:
-            build_function.csv_maker(fum_out, ffpe_b, per_exl)
+            build_function.csv_maker(fum_out, ffpe_n, per_exl)
 
     t_end = time.time()
     print("Total runtime: " + str(t_end - t_start) + "s")

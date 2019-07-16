@@ -6,9 +6,9 @@ def mol_count(inp_dict):
     Args:
         :param inp_dict: The output dict from the var_extract function
         Example dict for a FFPE-artefact:
-        inp_dict = umi_key: {"Single_Hits": Str1_Hits: {}, Str2_Hits:{C,T}, "Mate_Hits": Mutation_Hits": {},
-        "FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0,
-        "Mutation_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}}
+        inp_dict = umi_key: {"Single_Hits": Pos_Str_Hits: {}, Neg_Str_Hits:{C,T}, "Mate_Hits": True_Variant_Hits": {},
+        "FFPE_Hits": {"Pos_Str": C, "Pos_Str": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0,
+        "True_Variant_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}}
 
     Returns:
         :return: Returns a list consisting of the support for each variant type
@@ -16,7 +16,7 @@ def mol_count(inp_dict):
         [0,0,1,0,0]
     """
     ref_sup = 0
-    mut_sup = 0
+    var_sup = 0
     ffpe_sup = 0
     n_sup = 0
     del_sup = 0
@@ -24,13 +24,13 @@ def mol_count(inp_dict):
     for umi_key in inp_dict:
         if inp_dict[umi_key]["Mate_Hits"]:
             ref_sup += inp_dict[umi_key]["Mate_Hits"]["Reference_Support"]
-            mut_sup += inp_dict[umi_key]["Mate_Hits"]["Mutation_Support"]
+            var_sup += inp_dict[umi_key]["Mate_Hits"]["True_Variant_Support"]
             ffpe_sup += inp_dict[umi_key]["Mate_Hits"]["FFPE_Support"]
             n_sup += inp_dict[umi_key]["Mate_Hits"]["N_Support"]
             del_sup += inp_dict[umi_key]["Mate_Hits"]["Del_Support"]
         else:
             continue
-    return [ref_sup, mut_sup, ffpe_sup, n_sup, del_sup]
+    return [ref_sup, var_sup, ffpe_sup, n_sup, del_sup]
 
 
 def nuc_count(inp_dict, nuc):
@@ -42,25 +42,25 @@ def nuc_count(inp_dict, nuc):
     Args:
         :param inp_dict: The output dict from the var_extract function
         Example dict for a FFPE-artefact:
-        inp_dict = umi_key: {"Single_Hits": Str1_Hits: {}, Str2_Hits:{C,T}, "Mate_Hits": Mutation_Hits": {},
-        "FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0,
-        "Mutation_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}}
+        inp_dict = umi_key: {"Single_Hits": Pos_Str_Hits: {}, Neg_Str_Hits:{C,T}, "Mate_Hits": True_Variant_Hits": {},
+        "FFPE_Hits": {"Pos_Str": C, "Neg_Str": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0,
+        "True_variant_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}}
         :param nuc: The nucleotide of interest
 
     Returns:
-        :return:  Returns a dict with separate dicts giving the support for the nucleotide for str1, str2 and each
-        variant type
+        :return:  Returns a dict with separate dicts giving the support for the nucleotide for the positive and negative
+        strand, as well as each variant type
         Example dict for the nucleotide C for a imaginary input_dict:
-        n_sup = {"Paired": {"String_1": {C: {12}}, "String_2": C: {11}, "String_1_Single": C: {5},
-        "String_2_Single": C: {2}}
+        n_sup = {"Paired": {"Pos_Str": {C: {12}}, "Neg_Str": C: {11}, "Pos_Str_Single": C: {5},
+        "Neg_Str_Single": C: {2}}
     """
-    n_sup = {"Paired": {}, "String_1_Single": {}, "String_2_Single": {}}
+    n_sup = {"Paired": {}, "Pos_Str_Single": {}, "Neg_Str_Single": {}}
     for n in nuc:
-        n_sup["Paired"] = {"String_1": {}, "String_2": {}}
-        n_sup["Paired"]["String_1"][n] = 0
-        n_sup["Paired"]["String_2"][n] = 0
-        n_sup["String_1_Single"][n] = 0
-        n_sup["String_2_Single"][n] = 0
+        n_sup["Paired"] = {"Pos_Str": {}, "Neg_Str": {}}
+        n_sup["Paired"]["Pos_Str"][n] = 0
+        n_sup["Paired"]["Neg_Str"][n] = 0
+        n_sup["Pos_Str_Single"][n] = 0
+        n_sup["Neg_Str_Single"][n] = 0
         for umi_key in inp_dict:
             # Iterates through each alternative allele called by the variant caller
             # Counts the no. molecules supporting the variant for each direction in the single hits

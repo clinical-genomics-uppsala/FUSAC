@@ -1,12 +1,12 @@
 import pos_function
-import base_function
+import nuc_function
 import count_function
 import pandas as pd
 import os
 import shutil
 
 
-def vcf_extract(record, bam_file, ffpe_b, ext_fun, spl_fun, q_spl_cha, u_spl_cha):
+def vcf_extract(record, bam_file, ffpe_n, ext_fun, spl_fun, q_spl_cha, u_spl_cha):
     """ Uses the supplemented variant-record to extract all reads in the BAM-file overlapping with its position. This
     newly generated list is used for the pos_checker function to return molecular data. The output from pos_checker is
     then subsequently used in the inf-builder function. Finally, the output from inf_builder is added to the
@@ -15,7 +15,7 @@ def vcf_extract(record, bam_file, ffpe_b, ext_fun, spl_fun, q_spl_cha, u_spl_cha
     Args:
         :param record: Variant-record of interest
         :param bam_file: Path to the BAM-file of interest
-        :param ffpe_b: Parameter to determine if all mismatches should be classified as ffpe, or solely C:G>T:A
+        :param ffpe_n: Parameter to determine if all mismatches should be classified as ffpe, or solely C:G>T:A
         :param ext_fun: Function for extracting the UMI-tag from a read
         :param spl_fun: Function used for splitting the UMI-tag in a read
         :param q_spl_cha: Character used for splittign the UMI-tag from the query-name
@@ -49,35 +49,35 @@ def vcf_extract(record, bam_file, ffpe_b, ext_fun, spl_fun, q_spl_cha, u_spl_cha
         bam_lst.append(read)
 
     # Calls the pos_checker function to obtain ffpe_data
-    mpd_data, singleton_data = var_extract(bam_lst, n_pos, n_alt, n_ref, ffpe_b, ext_fun, spl_fun, q_spl_cha, u_spl_cha)
+    mate_data, singleton_data = var_extract(bam_lst, n_pos, n_alt, n_ref, ffpe_n, ext_fun, spl_fun, q_spl_cha, u_spl_cha)
 
-    mpd_inf = inf_builder(mpd_data, n_alt, n_ref)
+    mate_inf = inf_builder(mate_data, n_alt, n_ref)
     singleton_inf = inf_builder(singleton_data, n_alt, n_ref)
 
     for sample in n_cop.samples:
-        n_cop.samples[sample]['UMI'] = "{No_Mutation};{True_Mutation};{FFPE_Artefact};{Unknown};{Deletion};" \
+        n_cop.samples[sample]['UMI'] = "{Reference};{True_Variant};{FFPE_Artefact};{Unknown};{Deletion};" \
                                        "{Ref_Paired};{Var_Paired};{Ref_Single};{Var_Single}"\
-            .format(No_Mutation=mpd_inf[0][0], True_Mutation=mpd_inf[0][1], FFPE_Artefact=mpd_inf[0][2],
-                    Unknown=mpd_inf[0][3], Deletion=mpd_inf[0][4], Ref_Paired=mpd_inf[1], Var_Paired=mpd_inf[2],
-                    Ref_Single=mpd_inf[3], Var_Single=mpd_inf[4])
+            .format(Reference=mate_inf[0][0], True_Variant=mate_inf[0][1], FFPE_Artefact=mate_inf[0][2],
+                    Unknown=mate_inf[0][3], Deletion=mate_inf[0][4], Ref_Paired=mate_inf[1], Var_Paired=mate_inf[2],
+                    Ref_Single=mate_inf[3], Var_Single=mate_inf[4])
 
-        n_cop.samples[sample]['SUMI'] = "{No_Mutation};{True_Mutation};{FFPE_Artefact};{Unknown};{Deletion};" \
+        n_cop.samples[sample]['SUMI'] = "{Reference};{True_Variant};{FFPE_Artefact};{Unknown};{Deletion};" \
                                         "{Ref_Paired};{Var_Paired};{Ref_Single};{Var_Single}" \
-            .format(No_Mutation=singleton_inf[0][0], True_Mutation=singleton_inf[0][1],
+            .format(Reference=singleton_inf[0][0], True_Variant=singleton_inf[0][1],
                     FFPE_Artefact=singleton_inf[0][2], Unknown=singleton_inf[0][3], Deletion=singleton_inf[0][4],
                     Ref_Paired=singleton_inf[1], Var_Paired=singleton_inf[2], Ref_Single=singleton_inf[3],
                     Var_Single=singleton_inf[4])
 
         # Checks if any record in the returned dict indicates an FFPE, if so updates the n_fil parameter
-    for umi_key in mpd_data:
-        if mpd_data[umi_key]["Mate_Hits"]:
-            if mpd_data[umi_key]["Mate_Hits"]["FFPE_Hits"]:
+    for umi_key in mate_data:
+        if mate_data[umi_key]["Mate_Hits"]:
+            if mate_data[umi_key]["Mate_Hits"]["FFPE_Hits"]:
                 n_cop.filter.add("FFPE")
                 break
     return n_cop
 
 
-def var_extract(bam_lst, rec_pos, var_nuc, ref_nuc, ffpe_b, ext_fun, spl_fun, q_spl_cha, u_spl_cha):
+def var_extract(bam_lst, rec_pos, var_nuc, ref_nuc, ffpe_n, ext_fun, spl_fun, q_spl_cha, u_spl_cha):
     """ Function with the purpose of creating a dict based on the directionality and umi-tags of the supplemented
     reads in the bam_lst. Then using said dict to call the pos_hits and ffpe_finder functions to return a dict with
     data regarding positional data and variant types for the variant-record position and the reads aligning to it.
@@ -87,7 +87,7 @@ def var_extract(bam_lst, rec_pos, var_nuc, ref_nuc, ffpe_b, ext_fun, spl_fun, q_
         :param rec_pos: The position of the variant in the reference genome
         :param var_nuc: The nucleotide called in the variant-record
         :param ref_nuc: The nucleotide found in the reference genome at the variant-call position
-        :param ffpe_b: Optional input argument controlling which mismatches to consider for FFPE-classification
+        :param ffpe_n: Optional input argument controlling which mismatches to consider for FFPE-classification
         :param ext_fun: Function for extracting the UMI-tag from a read
         :param spl_fun: Function used for splitting the UMI-tag in a read
         :param q_spl_cha: Character used for splittign the UMI-tag from the query-name
@@ -95,24 +95,25 @@ def var_extract(bam_lst, rec_pos, var_nuc, ref_nuc, ffpe_b, ext_fun, spl_fun, q_
 
     Returns:
         :return: Returns a dict for mapped and unmapped reads. Each of these dicts containing a single-hits and a
-        mate-hits dict. The mate-hits dict in turn contains data regarding if the variant is a mutation, no mutation,
+        mate-hits dict. The mate-hits dict in turn contains data regarding if the variant is a variant, no variant,
         FFPE-artfefact deletion or N-call. Whereas the single-hits dict contains positional data for reads with no mate.
         Example dict:
-        mpd_res[umi_key] = {"Single_Hits": Str1_Hits: {}, Str2_Hits:{C,T}, "Mate_Hits": Mutation_Hits": {},
-        "FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0,
-        "Mutation_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}}
+        mate_res[umi_key] = {"Single_Hits": Pos
+        _Str_Hits: {}, Neg_Str_Hits:{C,T}, "Mate_Hits": True_Variant_Hits": {},
+        "FFPE_Hits": {"Pos_str": C, "Neg_Str": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0,
+        "True_Variant_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}}
 
     Raises:
         :raises KeyError: If a umi is not found within the umi_dict, adds said umi_id to the umi_dict as well as two
-        empty dicts for String_1 and String_2 for the umi
+        empty dicts for the positive and negative strand for the umi
         :raises KeyError: Raises a key-error if the requested read/dict_key does not exist
     """
-    mpd_dict = {}
+    mate_dict = {}
     singleton_dict = {}
-    mpd_b_dict = {}
-    singleton_b_dict = {}
+    mate_n_dict = {}
+    singleton_n_dict = {}
     umi_dict = {}
-    mpd_res = {}
+    mate_res = {}
     singleton_res = {}
     try:
         for read in bam_lst:
@@ -127,42 +128,42 @@ def var_extract(bam_lst, rec_pos, var_nuc, ref_nuc, ffpe_b, ext_fun, spl_fun, q_
                 umi_dict[umi_id][strand][qr_nm].append(read)
             except KeyError:
                 if umi_id not in umi_dict:
-                    umi_dict[umi_id] = {"String_1": dict(), "String_2": dict()}
+                    umi_dict[umi_id] = {"Pos_Str": dict(), "Neg_Str": dict()}
                 umi_dict[umi_id][strand][qr_nm] = [read]
         umi_dict = {k: v for k, v in umi_dict.items() if v}
 
-        str1_ms_hits = {}
-        str2_ms_hits = {}
-        str1_us_hits = {}
-        str2_us_hits = {}
+        pos_str_mate_hits = {}
+        neg_str_mate_hits = {}
+        pos_str_singleton_hits = {}
+        neg_str_singleton_hits = {}
         # Iterates through every UMI-key in the dict
         for umi_key in umi_dict.keys():
             # Retrieves the forward and reverse molecule hits from said UMI-key
-            str1_lst = umi_dict[umi_key]["String_1"]
-            str2_lst = umi_dict[umi_key]["String_2"]
+            pos_str_lst = umi_dict[umi_key]["Pos_Str"]
+            neg_str_lst = umi_dict[umi_key]["Neg_Str"]
             # If any of the keys have an empty list entry, separately calculates the pos_hits and stores it
-            if str1_lst:
-                if str2_lst:
-                    mpd_dict["String_1_Hits"] = pos_function.pos_hits(str1_lst, rec_pos)[0]
-                    mpd_dict["String_2_Hits"] = pos_function.pos_hits(str2_lst, rec_pos)[0]
-                    singleton_dict["String_1_Hits"] = pos_function.pos_hits(str1_lst, rec_pos)[1]
-                    singleton_dict["String_2_Hits"] = pos_function.pos_hits(str2_lst, rec_pos)[1]
-                    mpd_b_dict = base_function.ffpe_finder(mpd_dict, var_nuc, ref_nuc, ffpe_b)
-                    singleton_b_dict = base_function.ffpe_finder(singleton_dict, var_nuc, ref_nuc, ffpe_b)
+            if pos_str_lst:
+                if neg_str_lst:
+                    mate_dict["Pos_Str_Hits"] = pos_function.pos_hits(pos_str_lst, rec_pos)[0]
+                    mate_dict["Neg_Str_Hits"] = pos_function.pos_hits(neg_str_lst, rec_pos)[0]
+                    singleton_dict["Pos_Str_Hits"] = pos_function.pos_hits(pos_str_lst, rec_pos)[1]
+                    singleton_dict["Neg_Str_Hits"] = pos_function.pos_hits(neg_str_lst, rec_pos)[1]
+                    mate_n_dict = nuc_function.ffpe_finder(mate_dict, var_nuc, ref_nuc, ffpe_n)
+                    singleton_n_dict = nuc_function.ffpe_finder(singleton_dict, var_nuc, ref_nuc, ffpe_n)
                 else:
-                    str1_ms_hits = pos_function.pos_hits(str1_lst, rec_pos)[0]
-                    str1_us_hits = pos_function.pos_hits(str1_lst, rec_pos)[1]
-            elif str2_lst:
-                if not str1_lst:
-                    str2_ms_hits = pos_function.pos_hits(str2_lst, rec_pos)[0]
-                    str2_us_hits = pos_function.pos_hits(str2_lst, rec_pos)[1]
-            sing_m_dict = {"String_1_Single": str1_ms_hits, "String_2_Single": str2_ms_hits}
-            sing_u_dict = {"String_1_Single": str1_us_hits, "String_2_Single": str2_us_hits}
-            mpd_res[umi_key] = {"Single_Hits": sing_m_dict, "Mate_Hits": mpd_b_dict}
-            singleton_res[umi_key] = {"Single_Hits": sing_u_dict, "Mate_Hits": singleton_b_dict}
+                    pos_str_mate_hits = pos_function.pos_hits(pos_str_lst, rec_pos)[0]
+                    pos_str_singleton_hits = pos_function.pos_hits(pos_str_lst, rec_pos)[1]
+            elif neg_str_lst:
+                if not pos_str_lst:
+                    neg_str_mate_hits = pos_function.pos_hits(neg_str_lst, rec_pos)[0]
+                    neg_str_singleton_hits = pos_function.pos_hits(neg_str_lst, rec_pos)[1]
+            mate_s_dict = {"Pos_Str_Single": pos_str_mate_hits, "Neg_Str_Single": neg_str_mate_hits}
+            singleton_s_dict = {"Pos_Str_Single": pos_str_singleton_hits, "Neg_Str_Single": neg_str_singleton_hits}
+            mate_res[umi_key] = {"Single_Hits": mate_s_dict, "Mate_Hits": mate_n_dict}
+            singleton_res[umi_key] = {"Single_Hits": singleton_s_dict, "Mate_Hits": singleton_n_dict}
     except KeyError as e:
         print("ERROR: The requested key " + str(e) + " does not exist")
-    return [mpd_res, singleton_res]
+    return [mate_res, singleton_res]
 
 
 def inf_builder(inp_dict, ref_nuc, var_nuc):
@@ -183,9 +184,9 @@ def inf_builder(inp_dict, ref_nuc, var_nuc):
         no mutation, FFPE-artfefact deletion or N-call. Whereas the single-hits dict contains positional data for reads
         with no mate.
         Example dict for a FFPE-artefact:
-        inp_dict = umi_key: {"Single_Hits": Str1_Hits: {}, Str2_Hits:{C,T}, "Mate_Hits": Mutation_Hits": {},
-        "FFPE_Hits": {"String_1": C, "String_2": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0,
-        "Mutation_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}}
+        inp_dict = umi_key: {"Single_Hits": Pos_Str_Hits: {}, Neg_Str_Hits:{C,T}, "Mate_Hits": True_Variant_Hits": {},
+        "FFPE_Hits": {"Pos_Str": C, "Neg_Str": T}, "N_Hits": {}, "Del_Hits": {}, "Reference_Support": 0,
+        "True_Variant_Support": 0, "FFPE_Support": 1, "N_Support": 0, "Del_Support": 0}}
         :param ref_nuc: Nucletoide in the reference genome for the variant-record variant position
         :param var_nuc: Variant nucleotide for the variant-record variant-call
 
@@ -205,17 +206,17 @@ def inf_builder(inp_dict, ref_nuc, var_nuc):
     var_s = None
 
     for var in var_nuc:
-        var_p = str(alt_sup["Paired"]["String_1"][var]) + ";" + str(alt_sup["Paired"]["String_2"][var])
-        var_s = str(alt_sup["String_1_Single"][var]) + ";" + str(alt_sup["String_2_Single"][var])
+        var_p = str(alt_sup["Paired"]["Pos_Str"][var]) + ";" + str(alt_sup["Paired"]["Neg_Str"][var])
+        var_s = str(alt_sup["Pos_Str_Single"][var]) + ";" + str(alt_sup["Neg_Str_Single"][var])
 
     for ref in ref_nuc:
-        ref_p = str(ref_sup["Paired"]["String_1"][ref]) + ";" + str(ref_sup["Paired"]["String_2"][ref])
-        ref_s = str(ref_sup["String_1_Single"][ref]) + ";" + str(ref_sup["String_2_Single"][ref])
+        ref_p = str(ref_sup["Paired"]["Pos_Str"][ref]) + ";" + str(ref_sup["Paired"]["Neg_Str"][ref])
+        ref_s = str(ref_sup["Pos_Str_Single"][ref]) + ";" + str(ref_sup["Neg_Str_Single"][ref])
 
     return [type_sup, ref_p, var_p, ref_s, var_s]
 
 
-def csv_maker(vcf_file, ffpe_b, per_exl):
+def csv_maker(vcf_file, ffpe_n, per_exl):
     """ The csv_maker function generates an output CSV-file based on the FUSAC output containing data for each
     variant-record. More specifically regarding the molecular support for the reference genome nucleotide,
     the variant-call nucleotide,the number of FFPE-calls, the overall frequency of FFPE-artefacts for each
@@ -224,7 +225,7 @@ def csv_maker(vcf_file, ffpe_b, per_exl):
 
     Args:
         :param vcf_file: The output VCF file generated by FUSAC
-        :param ffpe_b: Optional input argument controlling which mismatches to consider for FFPE-classification
+        :param ffpe_n: Optional input argument controlling which mismatches to consider for FFPE-classification
         :param per_exl: Optional input argument controlling the percentage threshold from which to remove records with
         values beneath it
 
@@ -248,7 +249,7 @@ def csv_maker(vcf_file, ffpe_b, per_exl):
     for record in vcf_file.fetch():
         try:
             r_f = record.filter
-            if ffpe_b == "all":
+            if ffpe_n == "all":
                 csv_record_maker(pos_lst, change_lst, var_lst, ffpe_lst, ref_lst, perc_lst, record, per_exl)
                 for f_val in r_f:
                     if f_val == "FFPE":
@@ -270,14 +271,14 @@ def csv_maker(vcf_file, ffpe_b, per_exl):
         os.makedirs('FUSAC_Stats')
     # Prints out the most important statistics to a .csv file to be used with R
 
-    if ffpe_b == "all":
+    if ffpe_n == "all":
         pd.DataFrame({'Ref': ref_lst, 'Var': var_lst, 'FFPE': ffpe_lst, 'Perc': perc_lst,
-                      'BaseChange': change_lst}).to_csv("FUSAC_Stats/fusac_all_stats.csv")
+                      'NucChange': change_lst}).to_csv("FUSAC_Stats/fusac_all_stats.csv")
         pd.DataFrame({'Ref': f_ref_lst, 'Var': f_var_lst, 'FFPE': f_ffpe_lst, 'Perc': f_perc_lst,
-                      'BaseChange': f_change_lst}).to_csv("FUSAC_Stats/fusac_stats.csv")
+                      'NucChange': f_change_lst}).to_csv("FUSAC_Stats/fusac_stats.csv")
     else:
         pd.DataFrame({'Ref': ref_lst, 'Var': var_lst, 'FFPE': ffpe_lst, 'Perc': perc_lst,
-                      'BaseChange': change_lst}).to_csv("FUSAC_Stats/fusac_stats.csv")
+                      'NucChange': change_lst}).to_csv("FUSAC_Stats/fusac_stats.csv")
 
 
 def csv_record_maker(pos_lst, change_lst, var_lst, ffpe_lst, ref_lst, perc_lst, record, per_exl):
