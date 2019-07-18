@@ -5,7 +5,8 @@ python:
 
 install:
   - sudo apt-get update
-  - pip install pytest pysam
+  - pip install pytest
+  - pip install pysam
   - pip install pandas
 script:
   # run the workflow
