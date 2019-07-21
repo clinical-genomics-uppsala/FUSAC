@@ -1,10 +1,10 @@
 [![Build Status](https://travis-ci.org/clinical-genomics-uppsala/FUSAC.svg?branch=master)](https://travis-ci.org/clinical-genomics-uppsala/FUSAC)
 
 # FUSAC
-FFPE-tissue UMI-based Sequence Artefact Classifier
+FFPE tissue UMI-based Sequence Artefact Classifier
 
 ## Getting Started
-FUSAC is a python-based program for the identification and classification of FFPE-artefacts in UMI-tagged sequence data. Using a VCF and BAM-file + BAI-file as input, FUSAC is able to successfully identify group and collapse all reads aligning to a position called by the VCF. From this FUSAC generates consensus sequences for each UMI as well as identifying their string of origin before amplification. These consensus sequences are then compared with their mate, and thus FUSAC is able to not only identify C:G>T:A artefacts left by hydrolytic deamination, but also identify true mutations, deletions, unknowns and any other type of mismatch. 
+FUSAC is a python-based program for the identification and classification of FFPE-artefacts in UMI tagged sequence data. Using a VCF and BAM-file + BAI-file as input, FUSAC is able to successfully identify group and collapse all reads aligning to a position called by the VCF. From this FUSAC generates consensus sequences for each UMI as well as identifying their string of origin before amplification. These consensus sequences are then compared with their mate, and thus FUSAC is able to not only identify C:G>T:A artefacts left by hydrolytic deamination, but also identify true mutations, deletions, unknowns and any other type of mismatch. 
 
 FUSAC requires the user to have basic understanding of the data they wish to study, namely the location of the UMI-tag and how it is structurally stored within the  BAM-file. More specifically it requires the user to define both the location of the tag (query name or the RX-field) as well as the character the UMI is separated by if such a character exists. 
 
